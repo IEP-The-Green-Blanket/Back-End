@@ -1,0 +1,14 @@
+name: Pi Deploy Automation Back-End
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: self-hosted # Hiermee herkent hij je Pi runner
+    steps:
+      - name: Update Code via Python Script
+        run: |
+          /usr/local/bin/puller-git https://${{ secrets.GH_TOKEN }}@github.com/IEP-The-Green-Blanket/Back-End.git --dest /home/tripp/ie-Project/Back-End
