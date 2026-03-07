@@ -88,6 +88,42 @@
         "frameworkReferences": [
           "Microsoft.AspNetCore.App"
         ]
+      },
+      "GreenBlanket.Application/1.0.0": {
+        "type": "project",
+        "framework": ".NETCoreApp,Version=v8.0",
+        "dependencies": {
+          "GreenBlanket.Domain": "1.0.0"
+        },
+        "compile": {
+          "bin/placeholder/GreenBlanket.Application.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/GreenBlanket.Application.dll": {}
+        }
+      },
+      "GreenBlanket.Domain/1.0.0": {
+        "type": "project",
+        "framework": ".NETCoreApp,Version=v8.0",
+        "compile": {
+          "bin/placeholder/GreenBlanket.Domain.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/GreenBlanket.Domain.dll": {}
+        }
+      },
+      "GreenBlanket.Infrastructure/1.0.0": {
+        "type": "project",
+        "framework": ".NETCoreApp,Version=v8.0",
+        "dependencies": {
+          "GreenBlanket.Domain": "1.0.0"
+        },
+        "compile": {
+          "bin/placeholder/GreenBlanket.Infrastructure.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/GreenBlanket.Infrastructure.dll": {}
+        }
       }
     }
   },
@@ -439,10 +475,28 @@
         "swashbuckle.aspnetcore.swaggerui.6.6.2.nupkg.sha512",
         "swashbuckle.aspnetcore.swaggerui.nuspec"
       ]
+    },
+    "GreenBlanket.Application/1.0.0": {
+      "type": "project",
+      "path": "../GreenBlanket.Application/GreenBlanket.Application.csproj",
+      "msbuildProject": "../GreenBlanket.Application/GreenBlanket.Application.csproj"
+    },
+    "GreenBlanket.Domain/1.0.0": {
+      "type": "project",
+      "path": "../GreenBlanket.Domain/GreenBlanket.Domain.csproj",
+      "msbuildProject": "../GreenBlanket.Domain/GreenBlanket.Domain.csproj"
+    },
+    "GreenBlanket.Infrastructure/1.0.0": {
+      "type": "project",
+      "path": "../GreenBlanket.Infrastructure/GreenBlanket.Infrastructure.csproj",
+      "msbuildProject": "../GreenBlanket.Infrastructure/GreenBlanket.Infrastructure.csproj"
     }
   },
   "projectFileDependencyGroups": {
     "net8.0": [
+      "GreenBlanket.Application >= 1.0.0",
+      "GreenBlanket.Domain >= 1.0.0",
+      "GreenBlanket.Infrastructure >= 1.0.0",
       "Swashbuckle.AspNetCore >= 6.6.2"
     ]
   },
@@ -453,9 +507,9 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\Users\\rynog\\OneDrive - belgiumcampus.ac.za\\3rd Year\\International Project\\Git repos\\Back-End\\Back end code\\Back end code\\Back end code.csproj",
-      "projectName": "Back end code",
-      "projectPath": "C:\\Users\\rynog\\OneDrive - belgiumcampus.ac.za\\3rd Year\\International Project\\Git repos\\Back-End\\Back end code\\Back end code\\Back end code.csproj",
+      "projectUniqueName": "C:\\Users\\rynog\\OneDrive - belgiumcampus.ac.za\\3rd Year\\International Project\\Git repos\\Back-End\\Back end code\\Back end code\\GreenBlanket.API.csproj",
+      "projectName": "GreenBlanket.API",
+      "projectPath": "C:\\Users\\rynog\\OneDrive - belgiumcampus.ac.za\\3rd Year\\International Project\\Git repos\\Back-End\\Back end code\\Back end code\\GreenBlanket.API.csproj",
       "packagesPath": "C:\\Users\\rynog\\.nuget\\packages\\",
       "outputPath": "C:\\Users\\rynog\\OneDrive - belgiumcampus.ac.za\\3rd Year\\International Project\\Git repos\\Back-End\\Back end code\\Back end code\\obj\\",
       "projectStyle": "PackageReference",
@@ -478,7 +532,17 @@
       "frameworks": {
         "net8.0": {
           "targetAlias": "net8.0",
-          "projectReferences": {}
+          "projectReferences": {
+            "C:\\Users\\rynog\\OneDrive - belgiumcampus.ac.za\\3rd Year\\International Project\\Git repos\\Back-End\\Back end code\\GreenBlanket.Application\\GreenBlanket.Application.csproj": {
+              "projectPath": "C:\\Users\\rynog\\OneDrive - belgiumcampus.ac.za\\3rd Year\\International Project\\Git repos\\Back-End\\Back end code\\GreenBlanket.Application\\GreenBlanket.Application.csproj"
+            },
+            "C:\\Users\\rynog\\OneDrive - belgiumcampus.ac.za\\3rd Year\\International Project\\Git repos\\Back-End\\Back end code\\GreenBlanket.Domain\\GreenBlanket.Domain.csproj": {
+              "projectPath": "C:\\Users\\rynog\\OneDrive - belgiumcampus.ac.za\\3rd Year\\International Project\\Git repos\\Back-End\\Back end code\\GreenBlanket.Domain\\GreenBlanket.Domain.csproj"
+            },
+            "C:\\Users\\rynog\\OneDrive - belgiumcampus.ac.za\\3rd Year\\International Project\\Git repos\\Back-End\\Back end code\\GreenBlanket.Infrastructure\\GreenBlanket.Infrastructure.csproj": {
+              "projectPath": "C:\\Users\\rynog\\OneDrive - belgiumcampus.ac.za\\3rd Year\\International Project\\Git repos\\Back-End\\Back end code\\GreenBlanket.Infrastructure\\GreenBlanket.Infrastructure.csproj"
+            }
+          }
         }
       },
       "warningProperties": {
