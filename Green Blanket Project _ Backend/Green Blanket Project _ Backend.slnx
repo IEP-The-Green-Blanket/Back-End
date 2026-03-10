@@ -1,0 +1,14 @@
+<Solution>
+  <Project Path="GB.Application/GB.Application.csproj">
+    <BuildDependency Project="GB.Domain/GB.Domain.csproj" />
+  </Project>
+  <Project Path="GB.Domain/GB.Domain.csproj" />
+  <Project Path="GB.Infrastructure/GB.Infrastructure.csproj">
+    <BuildDependency Project="GB.Domain/GB.Domain.csproj" />
+  </Project>
+  <Project Path="Green Blanket Project _ Backend/Green Blanket Project _ Backend.csproj">
+    <BuildDependency Project="GB.Application/GB.Application.csproj" />
+    <BuildDependency Project="GB.Domain/GB.Domain.csproj" />
+    <BuildDependency Project="GB.Infrastructure/GB.Infrastructure.csproj" />
+  </Project>
+</Solution>
