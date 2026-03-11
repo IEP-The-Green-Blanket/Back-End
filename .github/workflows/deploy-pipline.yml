@@ -12,3 +12,7 @@ jobs:
       - name: Update Code via Python Script
         run: |
           /usr/local/bin/puller-git https://${{ secrets.GH_TOKEN }}@github.com/IEP-The-Green-Blanket/Back-End.git --dest /home/tripp/ie-Project/Back-End
+
+      - name: Herstart Docker Container
+        run: |
+          sudo /usr/local/bin/deploy --service backend
