@@ -49,3 +49,7 @@ src/main/resources/application.yml
 
 .vs/
 
+bin/
+
+obj/
+
