@@ -1,11 +1,30 @@
 {
   "version": 3,
   "targets": {
-    "net10.0": {}
+    "net10.0": {
+      "GB.Domain/1.0.0": {
+        "type": "project",
+        "framework": ".NETCoreApp,Version=v10.0",
+        "compile": {
+          "bin/placeholder/GB.Domain.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/GB.Domain.dll": {}
+        }
+      }
+    }
   },
-  "libraries": {},
+  "libraries": {
+    "GB.Domain/1.0.0": {
+      "type": "project",
+      "path": "../GB.Domain/GB.Domain.csproj",
+      "msbuildProject": "../GB.Domain/GB.Domain.csproj"
+    }
+  },
   "projectFileDependencyGroups": {
-    "net10.0": []
+    "net10.0": [
+      "GB.Domain >= 1.0.0"
+    ]
   },
   "packageFolders": {
     "C:\\Users\\Tobie\\.nuget\\packages\\": {},
@@ -39,7 +58,11 @@
       "frameworks": {
         "net10.0": {
           "targetAlias": "net10.0",
-          "projectReferences": {}
+          "projectReferences": {
+            "C:\\Users\\Tobie\\OneDrive\\Documentos\\University\\Third Year\\UCLL\\Group 1\\Local Programming\\Back-End\\Green Blanket Project _ Backend\\GB.Domain\\GB.Domain.csproj": {
+              "projectPath": "C:\\Users\\Tobie\\OneDrive\\Documentos\\University\\Third Year\\UCLL\\Group 1\\Local Programming\\Back-End\\Green Blanket Project _ Backend\\GB.Domain\\GB.Domain.csproj"
+            }
+          }
         }
       },
       "warningProperties": {

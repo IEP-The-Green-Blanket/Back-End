@@ -43,6 +43,45 @@
           "build/Microsoft.VisualStudio.Azure.Containers.Tools.Targets.props": {},
           "build/Microsoft.VisualStudio.Azure.Containers.Tools.Targets.targets": {}
         }
+      },
+      "Scalar.AspNetCore/2.13.9": {
+        "type": "package",
+        "compile": {
+          "lib/net10.0/Scalar.AspNetCore.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/net10.0/Scalar.AspNetCore.dll": {
+            "related": ".xml"
+          }
+        },
+        "frameworkReferences": [
+          "Microsoft.AspNetCore.App"
+        ]
+      },
+      "GB.Application/1.0.0": {
+        "type": "project",
+        "framework": ".NETCoreApp,Version=v10.0",
+        "dependencies": {
+          "GB.Domain": "1.0.0"
+        },
+        "compile": {
+          "bin/placeholder/GB.Application.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/GB.Application.dll": {}
+        }
+      },
+      "GB.Domain/1.0.0": {
+        "type": "project",
+        "framework": ".NETCoreApp,Version=v10.0",
+        "compile": {
+          "bin/placeholder/GB.Domain.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/GB.Domain.dll": {}
+        }
       }
     }
   },
@@ -162,12 +201,43 @@
         "tools/zh-Hant/Microsoft.VisualStudio.Containers.Tools.Shared.resources.dll",
         "tools/zh-Hant/Microsoft.VisualStudio.Containers.Tools.Tasks.resources.dll"
       ]
+    },
+    "Scalar.AspNetCore/2.13.9": {
+      "sha512": "BeQpbWJbvnrM8mUCmMgB6ApbSQ4C+4PmiNvE2bfSsxfgmbfAUX4zIe2xFKlGwpOG5dCgqx/8RQwh53VJZRSypQ==",
+      "type": "package",
+      "path": "scalar.aspnetcore/2.13.9",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "README.md",
+        "icon.png",
+        "lib/net10.0/Scalar.AspNetCore.dll",
+        "lib/net10.0/Scalar.AspNetCore.xml",
+        "lib/net8.0/Scalar.AspNetCore.dll",
+        "lib/net8.0/Scalar.AspNetCore.xml",
+        "lib/net9.0/Scalar.AspNetCore.dll",
+        "lib/net9.0/Scalar.AspNetCore.xml",
+        "scalar.aspnetcore.2.13.9.nupkg.sha512",
+        "scalar.aspnetcore.nuspec"
+      ]
+    },
+    "GB.Application/1.0.0": {
+      "type": "project",
+      "path": "../GB.Application/GB.Application.csproj",
+      "msbuildProject": "../GB.Application/GB.Application.csproj"
+    },
+    "GB.Domain/1.0.0": {
+      "type": "project",
+      "path": "../GB.Domain/GB.Domain.csproj",
+      "msbuildProject": "../GB.Domain/GB.Domain.csproj"
     }
   },
   "projectFileDependencyGroups": {
     "net10.0": [
+      "GB.Application >= 1.0.0",
       "Microsoft.AspNetCore.OpenApi >= 10.0.3",
-      "Microsoft.VisualStudio.Azure.Containers.Tools.Targets >= 1.23.0"
+      "Microsoft.VisualStudio.Azure.Containers.Tools.Targets >= 1.23.0",
+      "Scalar.AspNetCore >= 2.13.9"
     ]
   },
   "packageFolders": {
@@ -202,7 +272,11 @@
       "frameworks": {
         "net10.0": {
           "targetAlias": "net10.0",
-          "projectReferences": {}
+          "projectReferences": {
+            "C:\\Users\\Tobie\\OneDrive\\Documentos\\University\\Third Year\\UCLL\\Group 1\\Local Programming\\Back-End\\Green Blanket Project _ Backend\\GB.Application\\GB.Application.csproj": {
+              "projectPath": "C:\\Users\\Tobie\\OneDrive\\Documentos\\University\\Third Year\\UCLL\\Group 1\\Local Programming\\Back-End\\Green Blanket Project _ Backend\\GB.Application\\GB.Application.csproj"
+            }
+          }
         }
       },
       "warningProperties": {
@@ -228,6 +302,10 @@
           "Microsoft.VisualStudio.Azure.Containers.Tools.Targets": {
             "target": "Package",
             "version": "[1.23.0, )"
+          },
+          "Scalar.AspNetCore": {
+            "target": "Package",
+            "version": "[2.13.9, )"
           }
         },
         "imports": [
