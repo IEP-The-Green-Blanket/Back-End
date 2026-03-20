@@ -1,3 +1,6 @@
+using System.Xml.Schema;
+using GB.Application.Services;
+
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddCors(options =>
@@ -11,6 +14,7 @@ builder.Services.AddCors(options =>
     });
 });
 
+builder.Services.AddScoped<WaterQualityService>();
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 
