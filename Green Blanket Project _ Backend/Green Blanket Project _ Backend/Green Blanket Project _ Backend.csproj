@@ -19,4 +19,8 @@
     <ProjectReference Include="..\GB.Application\GB.Application.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\GB.Application\GB.Application.csproj" />
+  </ItemGroup>
+
 </Project>

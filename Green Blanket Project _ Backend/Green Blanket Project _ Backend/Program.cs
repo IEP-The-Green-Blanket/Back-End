@@ -16,6 +16,7 @@ builder.Services.AddCors(options =>
     });
 });
 
+builder.Services.AddScoped<WaterQualityService>();
 builder.Services.AddControllers();
 builder.Services.AddOpenApi(); // This generates the "blueprints" (JSON)
 
