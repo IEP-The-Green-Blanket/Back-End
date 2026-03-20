@@ -35,6 +35,8 @@ To stop the back-end:
 docker compose down
 ```
 
+http://localhost:5000/weatherforecast should work now.
+
 ### Useful Commands
 
 | Command                                | Description                 |
