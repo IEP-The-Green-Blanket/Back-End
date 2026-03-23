@@ -1,0 +1,10 @@
+services:
+  api:
+    container_name: running-greenblanket-api
+    build:
+      context: "./Green Blanket Project _ Backend"
+      dockerfile: "Green Blanket Project _ Backend/Dockerfile"
+    ports:
+      - "5000:5000"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
