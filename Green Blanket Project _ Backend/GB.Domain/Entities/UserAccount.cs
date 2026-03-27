@@ -18,6 +18,8 @@ namespace GB.Domain.Entities
         // 3. HEADERS: Authentication Properties
         // We initialize these to empty strings to prevent 'null' errors.
         public string Username { get; set; } = string.Empty;
+        
+        public string Email {get; set;} = string.Empty;
 
         // Note: For now, this is a plain text password for testing.
         // Later, we will store a "Hash" here for actual security.
