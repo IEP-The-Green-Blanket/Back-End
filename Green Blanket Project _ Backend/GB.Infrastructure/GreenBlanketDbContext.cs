@@ -1,7 +1,4 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using System;
-using System.Collections.Generic;
-using System.Text;
 using GB.Domain.Entities;
 
 namespace GB.Infrastructure;
@@ -18,11 +15,39 @@ public class GreenBlanketDbContext : DbContext
     {
         base.OnModelCreating(modelBuilder);
 
-        // Explicitly map the entity to the existing table name in pgAdmin
+        // 1. Explicitly map the entity to the exact table name in pgAdmin
         modelBuilder.Entity<ForumReport>().ToTable("report_forum");
 
-        // Ensure the primary key is mapped correctly if it's not standard "Id"
+        // 2. Ensure the primary key is mapped correctly
+        modelBuilder.Entity<ForumReport>().HasKey(f => f.ReportForumId);
+
+        // 3. The "Fixer" Mapping: Force exact lowercase column names for PostgreSQL
         modelBuilder.Entity<ForumReport>()
-            .HasKey(f => f.ReportForumId);
+            .Property(f => f.ReportForumId)
+            .HasColumnName("report_forum_id");
+
+        modelBuilder.Entity<ForumReport>()
+            .Property(f => f.ReportOptionsId)
+            .HasColumnName("report_options_id");
+
+        modelBuilder.Entity<ForumReport>()
+            .Property(f => f.Name)
+            .HasColumnName("name");
+
+        modelBuilder.Entity<ForumReport>()
+            .Property(f => f.Email)
+            .HasColumnName("email");
+
+        modelBuilder.Entity<ForumReport>()
+            .Property(f => f.Message)
+            .HasColumnName("message");
+
+        modelBuilder.Entity<ForumReport>()
+            .Property(f => f.Location)
+            .HasColumnName("location");
+
+        modelBuilder.Entity<ForumReport>()
+            .Property(f => f.Date)
+            .HasColumnName("date");
     }
 }
