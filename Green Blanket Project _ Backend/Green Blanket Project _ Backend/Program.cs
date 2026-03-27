@@ -90,6 +90,10 @@ if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
     app.MapScalarApiReference();
+
+    // Swagger
+    app.UseSwagger();
+    app.UseSwaggerUI();
 }
 
 app.MapHealthChecks("/health", new HealthCheckOptions
