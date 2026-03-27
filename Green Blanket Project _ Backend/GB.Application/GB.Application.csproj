@@ -8,6 +8,11 @@
 
   <ItemGroup>
     <ProjectReference Include="..\GB.Domain\GB.Domain.csproj" />
+    <ProjectReference Include="..\GB.Infrastructure\GB.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.5" />
   </ItemGroup>
 
 </Project>
