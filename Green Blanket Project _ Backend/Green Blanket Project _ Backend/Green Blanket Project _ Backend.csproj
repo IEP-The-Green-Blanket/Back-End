@@ -10,9 +10,11 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="AspNetCore.HealthChecks.NpgSql" Version="9.0.0" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.3" />
     <PackageReference Include="Microsoft.VisualStudio.Azure.Containers.Tools.Targets" Version="1.23.0" />
     <PackageReference Include="Scalar.AspNetCore" Version="2.13.9" />
+    <PackageReference Include="SSH.NET" Version="2025.1.0" />
   </ItemGroup>
 
   <ItemGroup>
@@ -21,6 +23,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\GB.Application\GB.Application.csproj" />
+    <ProjectReference Include="..\GB.Infrastructure\GB.Infrastructure.csproj" />
+    <ProjectReference Include="..\GB.Domain\GB.Domain.csproj" />
   </ItemGroup>
 
 </Project>
