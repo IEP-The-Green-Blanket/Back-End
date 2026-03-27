@@ -32,7 +32,7 @@ namespace GB.Application.Services
             // Intent: safety
             if (text.Contains("swim") || text.Contains("safe"))
             {
-                var response = _httpClient.GetAsync("https://localhost:7166/api/waterquality/status").Result;
+                var response = _httpClient.GetAsync("https://localhost:5050/api/waterquality/status").Result;
 
                 var json = response.Content.ReadAsStringAsync().Result;
 

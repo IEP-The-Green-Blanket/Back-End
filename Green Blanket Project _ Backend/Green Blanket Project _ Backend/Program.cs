@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using System.Text.Json;
 using Renci.SshNet; // The SSH Tunnel Library
 
+
 var builder = WebApplication.CreateBuilder(args);
 
 // ==========================================
@@ -75,7 +76,10 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 
 // E. Core API Requirements
 builder.Services.AddControllers();
+builder.Services.AddHttpClient<ChatbotService>();
 builder.Services.AddOpenApi();
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
 
 // ==========================================
 // 3. BUILD THE APP
