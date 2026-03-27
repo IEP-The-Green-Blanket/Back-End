@@ -65,27 +65,31 @@ if (app.Environment.IsDevelopment())
     // Swagger
     app.UseSwagger();
     app.UseSwaggerUI();
-
-    app.MapHealthChecks("/health", new HealthCheckOptions
-    {
-        ResponseWriter = async (context, report) =>
-        {
-            context.Response.ContentType = "application/json";
-            var response = new
-            {
-                status = report.Status.ToString(),
-                duration = report.TotalDuration.TotalMilliseconds + "ms",
-                info = report.Entries.Select(e => new
-                {
-                    name = e.Key,
-                    status = e.Value.Status.ToString(),
-                    error = e.Value.Exception?.Message ?? "None"
-                })
-            };
-            await context.Response.WriteAsync(JsonSerializer.Serialize(response, new JsonSerializerOptions { WriteIndented = true }));
-        }
-    });
 }
+
+app.MapHealthChecks("/api/health", new HealthCheckOptions
+{
+    ResponseWriter = async (context, report) =>
+    {
+        context.Response.ContentType = "application/json";
+        var isDev = app.Environment.IsDevelopment();
+        var response = new
+        {
+            status = report.Status.ToString(),
+            duration = report.TotalDuration.TotalMilliseconds + "ms",
+            info = isDev ? report.Entries.Select(e => new
+            {
+                name = e.Key,
+                status = e.Value.Status.ToString(),
+                error = e.Value.Exception?.Message ?? "None"
+            }) : null
+        };
+        await context.Response.WriteAsync(JsonSerializer.Serialize(response, new JsonSerializerOptions { 
+            WriteIndented = true, 
+            DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull 
+        }));
+    }
+});
 
 app.UseCors("FrontendPolicy");
 app.UseHttpsRedirection();
