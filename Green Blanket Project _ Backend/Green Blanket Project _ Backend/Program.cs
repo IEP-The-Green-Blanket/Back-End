@@ -20,6 +20,8 @@ builder.Services.AddScoped<ChatbotService>();
 builder.Services.AddScoped<WaterQualityService>();
 builder.Services.AddControllers();
 builder.Services.AddOpenApi(); // This generates the "blueprints" (JSON)
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
 
 // Registers your login logic
 builder.Services.AddScoped<IAuthService, AuthService>();
@@ -36,6 +38,10 @@ if (app.Environment.IsDevelopment())
 
     // This creates the actual WEBSITE at /scalar/v1 using that data
     app.MapScalarApiReference();
+
+    // Swagger
+    app.UseSwagger();
+    app.UseSwaggerUI();
 }
 
 app.UseCors("FrontendPolicy");
