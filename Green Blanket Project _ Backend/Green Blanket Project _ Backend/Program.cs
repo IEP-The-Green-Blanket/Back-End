@@ -16,7 +16,7 @@ builder.Services.AddCors(options =>
     });
 });
 
-builder.Services.AddScoped<ChatbotService>();
+builder.Services.AddHttpClient<ChatbotService>();
 builder.Services.AddScoped<WaterQualityService>();
 builder.Services.AddControllers();
 builder.Services.AddOpenApi(); // This generates the "blueprints" (JSON)
