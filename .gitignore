@@ -53,3 +53,13 @@ bin/
 
 obj/
 
+# ==========================================
+# SECRETS & LOCAL CONFIGURATION
+# ==========================================
+# Never push the development settings containing real passwords
+appsettings.Development.json
+appsettings.Local.json
+
+# If you use a secret manager or user secrets
+/secrets.json
+.microsoft.dotnet.usersecrets/
