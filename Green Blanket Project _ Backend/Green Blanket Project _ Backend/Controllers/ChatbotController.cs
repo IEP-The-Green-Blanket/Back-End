@@ -17,9 +17,14 @@ namespace Green_Blanket_Project___Backend.Controllers
         }
 
         [HttpPost]
-        public IActionResult Chat(ChatRequest request)
+        public async Task<IActionResult> Chat(ChatRequest request)
         {
-            var response = _service.GetResponse(request.Message);
+            if (request == null || string.IsNullOrWhiteSpace(request.Message))
+            {
+                return BadRequest("Message cannot be empty.");
+            }
+
+            var response = await _service.GetResponse(request.Message);
 
             return Ok(response);
         }

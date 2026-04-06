@@ -1,7 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Text.Json;
+using System.Net.Http.Headers;
 using GB.Application.DTOs;
+using Microsoft.Extensions.Configuration;
 
 namespace GB.Application.Services
 {
@@ -9,125 +12,129 @@ namespace GB.Application.Services
     {
 
         private readonly HttpClient _httpClient;
+        private readonly string _cohereApiKey;
 
-        public ChatbotService(HttpClient httpClient)
+        public ChatbotService(HttpClient httpClient, IConfiguration config)
         {
             _httpClient = httpClient;
+            _cohereApiKey = config["Cohere:ApiKey"];
         }
-        public ChatResponse GetResponse(string message)
+        private async Task<string> GetCohereResponse(string prompt)
         {
-
-            
-            var text = message.ToLower();
-
-            // Intent: explanation
-            if (text.Contains("why") || text.Contains("reason"))
+            var requestBody = new
             {
-                return new ChatResponse
+                model = "command-a-03-2025",
+                messages = new[]
                 {
-                    Response = "The water may be unsafe due to high levels of pollutants like nitrates and phosphates."
-                };
-            }
-
-            // Intent: safety
-            if (text.Contains("swim") || text.Contains("safe"))
-            {
-                var response = _httpClient.GetAsync("https://localhost:5050/api/waterquality/status").Result;
-
-                var json = response.Content.ReadAsStringAsync().Result;
-
-                var data = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(json);
-
-                var status = data["status"];
-
-                if (status == "Safe")
+                new
                 {
-                    return new ChatResponse
-                    {
-                        Response = "The water is currently safe. Swimming is allowed."
-                    };
+                    role = "user",
+                    content = prompt
                 }
-                else if (status == "Neutral")
-                {
-                    return new ChatResponse
-                    {
-                        Response = "The water is currently Neutral. Swimming is allowed but don't swallow water."
-                    };
-                }
-                else
-                {
-                    return new ChatResponse
-                    {
-                        Response = $"Swimming is not recommended because the water is currently {status}."
-                    };
-                }
-
-                
             }
+            };
 
-            // Intent: chemicals
-            if (text.Contains("nitrate"))
+            var request = new HttpRequestMessage(HttpMethod.Post, "https://api.cohere.com/v2/chat");
+
+            request.Headers.Add("Authorization", $"Bearer {_cohereApiKey}");
+            request.Headers.Add("Cohere-Version", "2024-05-01");
+
+            request.Content = new StringContent(
+                JsonSerializer.Serialize(requestBody),
+                Encoding.UTF8,
+                "application/json"
+            );
+
+            var response = await _httpClient.SendAsync(request);
+
+            if (!response.IsSuccessStatusCode)
             {
-                return new ChatResponse
-                {
-                    Response = "Nitrates are nutrients often found in fertilizers. High levels can indicate pollution from agricultural runoff."
-                };
+                var error = await response.Content.ReadAsStringAsync();
+                return $"Cohere API Error: {error}";
             }
 
-            if (text.Contains("phosphate"))
+            var json = await response.Content.ReadAsStringAsync();
+
+            using var doc = JsonDocument.Parse(json);
+
+            try
             {
-                return new ChatResponse
-                {
-                    Response = "Phosphates can cause excessive algae growth, which reduces oxygen in the water."
-                };
+                return doc.RootElement
+                    .GetProperty("message")
+                    .GetProperty("content")[0]
+                    .GetProperty("text")
+                    .GetString();
             }
-
-            // Intent: reporting
-            if (text.Contains("report") || text.Contains("pollution"))
+            catch
             {
-                return new ChatResponse
-                {
-                    Response = "You can report pollution by filling in the report form. I can guide you through it."
-                };
+                return "Sorry, I couldn't generate a response.";
             }
-            if (text.Contains("chemical") || text.Contains("levels") || text.Contains("nitrate") || text.Contains("phosphate"))
+        }
+
+        public async Task<ChatResponse> GetResponse(string message)
+        {
+            //Get water status
+            var statusResponse = await _httpClient.GetAsync("https://localhost:5050/api/waterquality/status");
+
+            if (!statusResponse.IsSuccessStatusCode)
             {
-                var response = _httpClient.GetAsync("https://localhost:7166/api/waterquality/chemicals").Result;
-
-                var json = response.Content.ReadAsStringAsync().Result;
-
-                var data = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, double>>(json);
-
-                var nitrate = data["nitrate"];
-                var phosphate = data["phosphate"];
-                var oxygen = data["oxygen"];
-
-                string advice;
-
-                if (nitrate > 5 || phosphate > 3)
-                {
-                    advice = "These levels are high so it indicates that the water is quite polluted. Avoid swimming";
-                }else
-                {
-                    advice = "These levels are on the lower side so the water is on the safer side";
-                }
-
-                return new ChatResponse
-                {
-                    Response = $"Current water chemical levels are:\n" +
-                   $"Nitrate: {nitrate}\n" +
-                   $"Phosphate: {phosphate}\n" +
-                   $"Oxygen: {oxygen}"
-                };
-
+                return new ChatResponse { Response = "Error fetching water status." };
             }
-            
-            // Fallback
+
+            var statusJson = await statusResponse.Content.ReadAsStringAsync();
+            var statusData = JsonSerializer.Deserialize<Dictionary<string, string>>(statusJson);
+
+            var status = statusData != null && statusData.ContainsKey("status")
+                ? statusData["status"]
+                : "Unknown";
+
+            //Get chemical data
+            var chemResponse = await _httpClient.GetAsync("https://localhost:5050/api/waterquality/chemicals");
+
+            if (!chemResponse.IsSuccessStatusCode)
+            {
+                return new ChatResponse { Response = "Error fetching chemical data." };
+            }
+
+            var chemJson = await chemResponse.Content.ReadAsStringAsync();
+            var chemData = JsonSerializer.Deserialize<Dictionary<string, double>>(chemJson);
+
+            var nitrate = chemData != null && chemData.ContainsKey("nitrate") ? chemData["nitrate"] : 0;
+            var phosphate = chemData != null && chemData.ContainsKey("phosphate") ? chemData["phosphate"] : 0;
+            var oxygen = chemData != null && chemData.ContainsKey("oxygen") ? chemData["oxygen"] : 0;
+
+            //Build prompt
+            var prompt = $@"
+            You are a helpful assistant for a dam water quality system.
+
+            If the question is about water safety, swimming, or chemicals:
+            - Use the data below
+            - Safe → swimming allowed
+            - Neutral → swimming allowed with caution
+            - Unsafe → swimming not recommended
+            - Only explain chemicals if asked
+
+            If the question is NOT related to water:
+            - Answer normally like a friendly chatbot
+
+            Keep answers under 3 sentences.
+
+            Current Data:
+            Status: {status}
+            Nitrate: {nitrate}
+            Phosphate: {phosphate}
+            Oxygen: {oxygen}
+
+            User Question: {message}
+            ";
+
+            //Call Cohere
+            var aiResponse = await GetCohereResponse(prompt);
+
             return new ChatResponse
             {
-                Response = "I'm not sure I understood that. You can ask me about water safety, chemicals, or reporting pollution."
+                Response = aiResponse
             };
-        
         }
     }
 }
