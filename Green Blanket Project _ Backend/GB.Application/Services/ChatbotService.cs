@@ -63,7 +63,7 @@ namespace GB.Application.Services
                     .GetProperty("message")
                     .GetProperty("content")[0]
                     .GetProperty("text")
-                    .GetString();
+                    .GetString() ?? "No response from AI.";
             }
             catch
             {
@@ -113,6 +113,16 @@ namespace GB.Application.Services
             - Neutral → swimming allowed with caution
             - Unsafe → swimming not recommended
             - Only explain chemicals if asked
+
+            If the user asks about reporting pollution:
+            - Explain they can use the 'Alert Us' button on the website at the top left of the screen
+            - They must fill in details like location and description
+            - Offer guidance
+
+            If the user asks about logging in:
+            - Tell them to use the 'Login' button at the top right of the screen
+            - Mention they need an account
+            - Suggest registering if they don’t have one
 
             If the question is NOT related to water:
             - Answer normally like a friendly chatbot
