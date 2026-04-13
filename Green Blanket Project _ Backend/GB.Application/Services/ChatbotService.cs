@@ -74,7 +74,7 @@ namespace GB.Application.Services
         public async Task<ChatResponse> GetResponse(string message)
         {
             //Get water status
-            var statusResponse = await _httpClient.GetAsync("https://localhost:5050/api/waterquality/status");
+            var statusResponse = await _httpClient.GetAsync("/api/waterquality/status");
 
             if (!statusResponse.IsSuccessStatusCode)
             {
@@ -89,7 +89,7 @@ namespace GB.Application.Services
                 : "Unknown";
 
             //Get chemical data
-            var chemResponse = await _httpClient.GetAsync("https://localhost:5050/api/waterquality/chemicals");
+            var chemResponse = await _httpClient.GetAsync("/api/waterquality/chemicals");
 
             if (!chemResponse.IsSuccessStatusCode)
             {

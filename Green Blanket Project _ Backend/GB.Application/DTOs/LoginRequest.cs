@@ -1,17 +1,21 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations; // Added for validation
 using System.Text;
 
 namespace GB.Application.DTOs
 {
-    // We make this public so the Web API project can create this object 
-    // when a user tries to log in.
+    /// <summary>
+    /// Data Transfer Object for user login requests.
+    /// </summary>
     public class LoginRequest
     {
-        // The username entered on the login screen
+        // Adding [Required] ensures the API returns a 400 Bad Request 
+        // immediately if the frontend sends an empty username.
+        [Required(ErrorMessage = "Username is required.")]
         public string Username { get; set; } = string.Empty;
 
-        // The password entered on the login screen
+        [Required(ErrorMessage = "Password is required.")]
         public string Password { get; set; } = string.Empty;
     }
 }
