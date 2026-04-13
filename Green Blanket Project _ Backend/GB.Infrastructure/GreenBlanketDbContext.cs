@@ -58,8 +58,10 @@ public class GreenBlanketDbContext : DbContext
             .Property(u => u.Password)
             .HasColumnName("user_password");
 
+        // THE FIX: Added .HasConversion<string>() to map the Enum to PostgreSQL's character varying column
         modelBuilder.Entity<UserAccount>()
             .Property(u => u.Role)
-            .HasColumnName("user_role");
+            .HasColumnName("user_role")
+            .HasConversion<string>();
     }
 }

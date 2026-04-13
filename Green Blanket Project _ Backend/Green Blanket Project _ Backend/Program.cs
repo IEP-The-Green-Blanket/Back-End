@@ -20,7 +20,6 @@ if (builder.Environment.IsDevelopment())
     var sshUser = builder.Configuration["SshConfiguration:Username"];
     var sshPassword = builder.Configuration["SshConfiguration:Password"];
 
-    // Only open the tunnel if we aren't using the "YOUR_USERNAME" placeholders
     if (!string.IsNullOrEmpty(sshHost) && !string.IsNullOrEmpty(sshUser) && !sshUser.Contains("YOUR_USERNAME"))
     {
         try
@@ -28,16 +27,17 @@ if (builder.Environment.IsDevelopment())
             var sshClient = new SshClient(sshHost, sshPort, sshUser, sshPassword);
             sshClient.Connect();
 
-            // Route local 54320 -> Remote 5432
             var port = new ForwardedPortLocal("127.0.0.1", 54320, "127.0.0.1", 5432);
             sshClient.AddForwardedPort(port);
             port.Start();
 
-            // Give the tunnel 2 seconds to breathe/handshake
             Thread.Sleep(2000);
 
             Console.WriteLine(">>> SSH Tunnel Connected Successfully! <<<");
             Console.WriteLine(">>> Port Forwarding Active on 127.0.0.1:54320 <<<");
+
+            // THE FIX: Save the client into the app's services so the Garbage Collector doesn't kill it!
+            builder.Services.AddSingleton(sshClient);
         }
         catch (Exception ex)
         {

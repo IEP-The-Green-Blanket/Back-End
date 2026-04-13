@@ -1,16 +1,23 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Threading.Tasks; // Required for async database operations
 using GB.Application.DTOs;
 
 namespace GB.Application.Interfaces
 {
-    // We change this to a 'public interface'.
-    // This is the "contract" for authentication in the Green Blanket project.
+    /// <summary>
+    /// The 'contract' for authentication logic. 
+    /// Updated to handle asynchronous database calls for the Harties DB.
+    /// </summary>
     public interface IAuthService
     {
-        // Any class that implements this interface MUST provide 
-        // a way to verify a user and return a result string.
-        string VerifyUser(LoginRequest request);
+        // 1. LOGIN CONTRACT:
+        // Changed to 'Task<string>' so the engine can 'await' the PostgreSQL response.
+        Task<string> VerifyUser(LoginRequest request);
+
+        // 2. SIGNUP CONTRACT:
+        // This was missing! It allows the Controller to talk to the Registration logic.
+        Task<string> RegisterUser(SignupRequest request);
     }
 }
