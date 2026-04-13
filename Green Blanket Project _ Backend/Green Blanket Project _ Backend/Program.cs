@@ -89,6 +89,13 @@ builder.Services.AddOpenApi();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+var baseUrl = builder.Configuration["ApiBaseUrl"];
+
+builder.Services.AddHttpClient<ChatbotService>(client =>
+{
+    client.BaseAddress = new Uri(baseUrl);
+});
+
 // ==========================================
 // 3. BUILD THE APP
 // ==========================================
@@ -131,6 +138,8 @@ app.MapHealthChecks("/api/health", new HealthCheckOptions
         }));
     }
 });
+
+
 
 app.UseCors("FrontendPolicy");
 app.UseHttpsRedirection();
