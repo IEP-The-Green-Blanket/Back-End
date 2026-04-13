@@ -81,7 +81,12 @@ builder.Services.AddCors(options =>
 // D. Application Services
 builder.Services.AddScoped<WaterQualityService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
-builder.Services.AddHttpClient<ChatbotService>(); // Kept your chatbot!
+var baseUrl = builder.Configuration["ApiBaseUrl"];
+
+builder.Services.AddHttpClient<ChatbotService>(client =>
+{
+    client.BaseAddress = new Uri(baseUrl);
+}); // Kept your chatbot!
 
 // E. API Tools
 builder.Services.AddControllers();
@@ -89,12 +94,7 @@ builder.Services.AddOpenApi();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-var baseUrl = builder.Configuration["ApiBaseUrl"];
 
-builder.Services.AddHttpClient<ChatbotService>(client =>
-{
-    client.BaseAddress = new Uri(baseUrl);
-});
 
 // ==========================================
 // 3. BUILD THE APP
@@ -139,10 +139,13 @@ app.MapHealthChecks("/api/health", new HealthCheckOptions
     }
 });
 
-
+Console.WriteLine($"Base URL: {baseUrl}");
 
 app.UseCors("FrontendPolicy");
-app.UseHttpsRedirection();
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
 app.UseAuthorization();
 app.MapControllers();
 
