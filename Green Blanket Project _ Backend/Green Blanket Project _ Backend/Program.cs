@@ -7,6 +7,8 @@ using System.Text.Json;
 using Renci.SshNet; // The SSH Tunnel Library
 using Scalar.AspNetCore;
 
+AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
+
 var builder = WebApplication.CreateBuilder(args);
 
 // ==========================================
@@ -81,11 +83,12 @@ builder.Services.AddCors(options =>
 // D. Application Services
 builder.Services.AddScoped<WaterQualityService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+
 var baseUrl = builder.Configuration["ApiBaseUrl"];
 
 builder.Services.AddHttpClient<ChatbotService>(client =>
 {
-    client.BaseAddress = new Uri(baseUrl);
+    client.BaseAddress = new Uri(baseUrl ?? "https://localhost:5050");
 }); // Kept your chatbot!
 
 // E. API Tools
@@ -93,8 +96,6 @@ builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
-
-
 
 // ==========================================
 // 3. BUILD THE APP
@@ -104,7 +105,6 @@ var app = builder.Build();
 // ==========================================
 // 4. MIDDLEWARE PIPELINE
 // ==========================================
-
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
@@ -142,10 +142,12 @@ app.MapHealthChecks("/api/health", new HealthCheckOptions
 Console.WriteLine($"Base URL: {baseUrl}");
 
 app.UseCors("FrontendPolicy");
+
 if (!app.Environment.IsDevelopment())
 {
     app.UseHttpsRedirection();
 }
+
 app.UseAuthorization();
 app.MapControllers();
 

@@ -11,6 +11,9 @@ public class GreenBlanketDbContext : DbContext
     public DbSet<ForumReport> ForumReports { get; set; }
     public DbSet<UserAccount> UserAccounts { get; set; }
 
+    // NEW: The Analytics Data Table
+    public DbSet<WaterReading> WaterReadings { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -58,10 +61,45 @@ public class GreenBlanketDbContext : DbContext
             .Property(u => u.Password)
             .HasColumnName("user_password");
 
-        // THE FIX: Added .HasConversion<string>() to map the Enum to PostgreSQL's character varying column
+        // Enum mapping fix for PostgreSQL
         modelBuilder.Entity<UserAccount>()
             .Property(u => u.Role)
             .HasColumnName("user_role")
             .HasConversion<string>();
+
+        // ==========================================
+        // 3. WaterReading Mapping (Analytics Engine)
+        // ==========================================
+        modelBuilder.Entity<WaterReading>().ToTable("water_data");
+
+        modelBuilder.Entity<WaterReading>().HasKey(w => w.MonFeatureId);
+
+        modelBuilder.Entity<WaterReading>()
+            .Property(w => w.MonFeatureId)
+            .HasColumnName("mon_feature_id");
+
+        modelBuilder.Entity<WaterReading>()
+            .Property(w => w.DateTime)
+            .HasColumnName("date_time");
+
+        modelBuilder.Entity<WaterReading>()
+            .Property(w => w.PhLevel)
+            .HasColumnName("ph_diss_water");
+
+        modelBuilder.Entity<WaterReading>()
+            .Property(w => w.ElectricalConductivity)
+            .HasColumnName("ec_phys_water");
+
+        modelBuilder.Entity<WaterReading>()
+            .Property(w => w.Nitrates)
+            .HasColumnName("no3_no2_n_diss_water");
+
+        modelBuilder.Entity<WaterReading>()
+            .Property(w => w.Phosphates)
+            .HasColumnName("po4_p_diss_water");
+
+        modelBuilder.Entity<WaterReading>()
+            .Property(w => w.Ammonia)
+            .HasColumnName("nh4_n_diss_water");
     }
 }
