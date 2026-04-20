@@ -45,23 +45,87 @@ namespace Green_Blanket_Project___Backend.Controllers
         }
 
         // ============================================================================
+        // CHATBOT DATA FEED
+        // ============================================================================
+        [HttpGet("chatbot-summary")]
+        public async Task<IActionResult> GetChatbotSummary()
+        {
+            // 1. Fetch latest data using AsNoTracking to avoid identity collapsing
+            var latest = await _context.WaterReadings
+                .AsNoTracking()
+                .Where(w => w.PhLevel != null && w.Nitrates != null && w.Phosphates != null)
+                .OrderByDescending(w => w.DateTime)
+                .FirstOrDefaultAsync();
+
+            if (latest == null) return NotFound("No recent water data available for the chatbot.");
+
+            // 2. Reuse the MASTER logic to ensure 100% consistency
+            float wqi = CalculateWQI(latest);
+
+            // Safety & Risk Calculations
+            double ammoniaVal = latest.Ammonia ?? 0.05;
+            double toxicPercentage = 1 / (Math.Pow(10, (9.25 - latest.PhLevel.Value)) + 1);
+            double actualToxicNH3 = ammoniaVal * toxicPercentage;
+            double healthRiskBase = Math.Clamp((Math.Max(0, latest.PhLevel.Value - 7.0) * 15) + (latest.Phosphates.Value * 120), 0, 100);
+
+            // 3. Return a "System Prompt Friendly" Object
+            return Ok(new
+            {
+                lastUpdated = latest.DateTime,
+
+                // Primary Safety Metrics
+                summary = new
+                {
+                    waterHealthScore = Math.Round(wqi, 1),
+                    healthGrade = MapToTenLevels(wqi, "grade"),
+                    swimSafetyStatus = MapToTenLevels(wqi, "swim"),
+                    skinIrritationRisk = MapToTenLevels(healthRiskBase, "irritation"),
+                    odorProfile = MapToTenLevels(latest.Phosphates.Value * 100, "odor")
+                },
+
+                // Scientific Context (for "Why" questions)
+                scientificContext = new
+                {
+                    phValue = latest.PhLevel,
+                    nitrateLevel = latest.Nitrates,
+                    phosphateLevel = latest.Phosphates,
+                    ammoniaToxicityMgL = Math.Round(actualToxicNH3, 5),
+                    livestockSafety = actualToxicNH3 < 0.01 ? "Safe for animals" : "Danger: Toxic to livestock"
+                },
+
+                // Direct AI Instructions (Helps the LLM give better advice)
+                aiGuidelines = new
+                {
+                    canISwim = wqi > 70 ? "Yes, conditions are optimal." : "Proceed with caution or avoid contact.",
+                    healthWarning = healthRiskBase > 50 ? "Warning: High risk of skin rashes or ear infections." : "No significant health risks detected.",
+                    currentConcern = latest.Phosphates > 0.1 ? "Heavy nutrient loading detected, likely fueling hyacinth growth." : "Nutrient levels are within normal historical ranges."
+                }
+            });
+        }
+
+        // ============================================================================
         // 1. OMNI-DASHBOARD (The Master Analytical Suite with 10-Level Granularity)
         // ============================================================================
         [HttpGet("omni-dashboard")]
         public async Task<IActionResult> GetOmniDashboard()
         {
             // Fetch Latest Data (Ensuring ALL metrics needed for math are NOT NULL)
+            // We add .AsNoTracking() to prevent the "Identity Collapsing" bug
             var latest = await _context.WaterReadings
+                .AsNoTracking()
                 .Where(w => w.PhLevel != null && w.Nitrates != null && w.Phosphates != null && w.ElectricalConductivity != null)
                 .OrderByDescending(w => w.DateTime)
                 .FirstOrDefaultAsync();
 
             if (latest == null) return NotFound("Insufficient data found to build analytics.");
 
+            // Ensure UTC conversion for consistent historical lookback
             DateTime latestUtc = DateTime.SpecifyKind(latest.DateTime, DateTimeKind.Utc);
 
-            // Historical Query: Must also filter for nulls to prevent crashing the StdDev and WQI engines
+            // Historical Query: Fetch up to 30 days of trends.
+            // CRITICAL: .AsNoTracking() ensures 28 unique days show 28 unique values on your graph.
             var historicalData = await _context.WaterReadings
+                .AsNoTracking()
                 .Where(w => w.DateTime >= latestUtc.AddDays(-30)
                          && w.PhLevel != null && w.Nitrates != null && w.Phosphates != null)
                 .OrderBy(w => w.DateTime)
@@ -116,6 +180,7 @@ namespace Green_Blanket_Project___Backend.Controllers
 
                 graphingData = new
                 {
+                    // If you have multiple readings on the same day, consider adding HH:mm to the label
                     labels = historicalData.Select(d => d.DateTime.ToString("MMM dd")),
                     nitrateTrend = historicalData.Select(d => d.Nitrates),
                     phosphateTrend = historicalData.Select(d => d.Phosphates),

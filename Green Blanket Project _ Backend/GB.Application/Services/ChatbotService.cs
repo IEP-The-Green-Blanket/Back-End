@@ -2,7 +2,8 @@
 using System.Collections.Generic;
 using System.Text;
 using System.Text.Json;
-using System.Net.Http.Headers;
+using System.Net.Http;
+using System.Threading.Tasks;
 using GB.Application.DTOs;
 using Microsoft.Extensions.Configuration;
 
@@ -10,34 +11,35 @@ namespace GB.Application.Services
 {
     public class ChatbotService
     {
-
         private readonly HttpClient _httpClient;
         private readonly string _cohereApiKey;
+        private readonly WaterQualityService _waterService;
 
-        public ChatbotService(HttpClient httpClient, IConfiguration config)
+        public ChatbotService(HttpClient httpClient, IConfiguration config, WaterQualityService waterService)
         {
             _httpClient = httpClient;
-            _cohereApiKey = config["Cohere:ApiKey"];
+            _cohereApiKey = config["Cohere:ApiKey"] ?? "";
+            _waterService = waterService;
         }
+
         private async Task<string> GetCohereResponse(string prompt)
         {
+            if (string.IsNullOrEmpty(_cohereApiKey))
+                return "Cohere API Key is missing in appsettings.json.";
+
             var requestBody = new
             {
-                model = "command-a-03-2025",
+                // FIXED: Using a versioned model string to bypass alias retirement issues.
+                // If this still fails, try "command-r-08-2024" (the standard version).
+                model = "command-r-plus-08-2024",
                 messages = new[]
                 {
-                new
-                {
-                    role = "user",
-                    content = prompt
+                    new { role = "user", content = prompt }
                 }
-            }
             };
 
             var request = new HttpRequestMessage(HttpMethod.Post, "https://api.cohere.com/v2/chat");
-
             request.Headers.Add("Authorization", $"Bearer {_cohereApiKey}");
-            request.Headers.Add("Cohere-Version", "2024-05-01");
 
             request.Content = new StringContent(
                 JsonSerializer.Serialize(requestBody),
@@ -49,12 +51,11 @@ namespace GB.Application.Services
 
             if (!response.IsSuccessStatusCode)
             {
-                var error = await response.Content.ReadAsStringAsync();
-                return $"Cohere API Error: {error}";
+                var errorDetails = await response.Content.ReadAsStringAsync();
+                return $"AI Service Error: {response.StatusCode} - {errorDetails}";
             }
 
             var json = await response.Content.ReadAsStringAsync();
-
             using var doc = JsonDocument.Parse(json);
 
             try
@@ -63,88 +64,48 @@ namespace GB.Application.Services
                     .GetProperty("message")
                     .GetProperty("content")[0]
                     .GetProperty("text")
-                    .GetString() ?? "No response from AI.";
+                    .GetString() ?? "I received an empty response from the AI.";
             }
-            catch
+            catch (Exception ex)
             {
-                return "Sorry, I couldn't generate a response.";
+                return $"Error parsing AI response: {ex.Message}";
             }
         }
 
         public async Task<ChatResponse> GetResponse(string message)
         {
-            //Get water status
-            var statusResponse = await _httpClient.GetAsync("/api/waterquality/status");
+            // 1. Fetch real status from your fixed Intelligence Engine
+            var dataFacts = await _waterService.GetAiStatusPacketAsync();
 
-            if (!statusResponse.IsSuccessStatusCode)
-            {
-                return new ChatResponse { Response = "Error fetching water status." };
-            }
+            string dataContextJson = dataFacts != null
+                ? JsonSerializer.Serialize(dataFacts)
+                : "No live sensor data available.";
 
-            var statusJson = await statusResponse.Content.ReadAsStringAsync();
-            var statusData = JsonSerializer.Deserialize<Dictionary<string, string>>(statusJson);
-
-            var status = statusData != null && statusData.ContainsKey("status")
-                ? statusData["status"]
-                : "Unknown";
-
-            //Get chemical data
-            var chemResponse = await _httpClient.GetAsync("/api/waterquality/chemicals");
-
-            if (!chemResponse.IsSuccessStatusCode)
-            {
-                return new ChatResponse { Response = "Error fetching chemical data." };
-            }
-
-            var chemJson = await chemResponse.Content.ReadAsStringAsync();
-            var chemData = JsonSerializer.Deserialize<Dictionary<string, double>>(chemJson);
-
-            var nitrate = chemData != null && chemData.ContainsKey("nitrate") ? chemData["nitrate"] : 0;
-            var phosphate = chemData != null && chemData.ContainsKey("phosphate") ? chemData["phosphate"] : 0;
-            var oxygen = chemData != null && chemData.ContainsKey("oxygen") ? chemData["oxygen"] : 0;
-
-            //Build prompt
+            // 2. Build the "Grounded" prompt (RAG pattern)
             var prompt = $@"
-            You are a helpful assistant for a dam water quality system.
+                ROLE: You are the 'Green Blanket Assistant,' a friendly and professional expert on the Hartbeespoort Dam. 
+                TASK: Answer the User Question politely and accurately using ONLY the provided SENSOR DATA and UI RULES.
 
-            If the question is about water safety, swimming, or chemicals:
-            - Use the data below
-            - Safe → swimming allowed
-            - Neutral → swimming allowed with caution
-            - Unsafe → swimming not recommended
-            - Only explain chemicals if asked
+                SENSOR DATA (JSON):
+                {dataContextJson}
 
-            If the user asks about reporting pollution:
-            - Explain they can use the 'Alert Us' button on the website at the top left of the screen
-            - They must fill in details like location and description
-            - Offer guidance
+                STRICT OPERATING RULES:
+                1. HUMAN-LIKE GROUNDING: Answer the user's question directly. If the SENSOR DATA is missing a specific value, say you don't have that reading yet and pivot to a metric you DO have that might be helpful. Never invent data or draw conclusions about things not in the JSON.
+                2. SUSPICIOUS ACTIVITY ONLY: Only direct the user to the 'Alert Us' button (top left) if they explicitly mention seeing something wrong, suspicious, or harmful, such as bad odors, illegal dumping, dead fish, or heavy sewage. 
+                3. UI NAVIGATION: For account or login issues, suggest the buttons at the top right. For historical trends or farming data, suggest the icons in the sidebar on the left.
+                4. SAFETY FIRST: If 'swimSafety' is not 'Safe', you must advise caution. If 'skinIrritationRisk' is not 'None', you must warn about potential rashes.
 
-            If the user asks about logging in:
-            - Tell them to use the 'Login' button at the top right of the screen
-            - Mention they need an account
-            - Suggest registering if they don’t have one
+                CONSTRAINTS:
+                - Tone: Polite, punctual, and helpful (like a human peer).
+                - Answer ONLY the user's question.
+                - Length: STRICT MAXIMUM OF 2 SENTENCES.
 
-            If the question is NOT related to water:
-            - Answer normally like a friendly chatbot
+                User Question: {message}
+                ";
 
-            Keep answers under 3 sentences.
-
-            Current Data:
-            Status: {status}
-            Nitrate: {nitrate}
-            Phosphate: {phosphate}
-            Oxygen: {oxygen}
-
-            User Question: {message}
-            ";
-
-            //Call Cohere
             var aiResponse = await GetCohereResponse(prompt);
 
-            return new ChatResponse
-            {
-                Response = aiResponse
-            };
+            return new ChatResponse { Response = aiResponse };
         }
     }
 }
