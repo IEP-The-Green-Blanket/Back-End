@@ -74,37 +74,36 @@ namespace GB.Application.Services
 
         public async Task<ChatResponse> GetResponse(string message)
         {
-            // 1. Fetch real status from your fixed Intelligence Engine
+            // 1. Get real-time facts from your Intelligence Engine
             var dataFacts = await _waterService.GetAiStatusPacketAsync();
-
-            string dataContextJson = dataFacts != null
+            string factSheet = dataFacts != null
                 ? JsonSerializer.Serialize(dataFacts)
-                : "No live sensor data available.";
+                : "Live sensors are currently offline.";
 
-            // 2. Build the "Grounded" prompt (RAG pattern)
+            // 2. Capture the REAL current time so the AI knows today's date
+            string today = DateTime.Now.ToString("MMMM dd, yyyy");
+
+            // 3. REFINED HUMAN-CENTRIC PROMPT WITH DATE AWARENESS
             var prompt = $@"
-                ROLE: You are the 'Green Blanket Assistant,' a friendly and professional expert on the Hartbeespoort Dam. 
-                TASK: Answer the User Question politely and accurately using ONLY the provided SENSOR DATA and UI RULES.
-
-                SENSOR DATA (JSON):
-                {dataContextJson}
+                ROLE: You are the 'Green Blanket Assistant,' a friendly and professional human expert on the Hartbeespoort Dam.
+                TODAY'S DATE: {today}
+                SENSOR DATA (JSON): {factSheet}
 
                 STRICT OPERATING RULES:
-                1. HUMAN-LIKE GROUNDING: Answer the user's question directly. If the SENSOR DATA is missing a specific value, say you don't have that reading yet and pivot to a metric you DO have that might be helpful. Never invent data or draw conclusions about things not in the JSON.
-                2. SUSPICIOUS ACTIVITY ONLY: Only direct the user to the 'Alert Us' button (top left) if they explicitly mention seeing something wrong, suspicious, or harmful, such as bad odors, illegal dumping, dead fish, or heavy sewage. 
-                3. UI NAVIGATION: For account or login issues, suggest the buttons at the top right. For historical trends or farming data, suggest the icons in the sidebar on the left.
-                4. SAFETY FIRST: If 'swimSafety' is not 'Safe', you must advise caution. If 'skinIrritationRisk' is not 'None', you must warn about potential rashes.
+                1. OUTDATED DATA RULE: If the 'timestamp' in the JSON is not within a week range from {today}, you must politely mention that the data is from a previous reading (state the date) and that you are currently awaiting a fresh sensor update.
+                2. BE HUMAN: Speak naturally and politely, as if to a peer. Answer ONLY the user's specific question.
+                3. DATA-FIRST: If you don't have a specific reading, say you don't have it and pivot to a metric you DO have from the JSON. Never invent data.
+                4. SAFETY: If 'swimSafety' is not 'Safe', advise caution. If 'skinIrritationRisk' is not 'None', warn about rashes.
+                5. REPORTING: Suggest 'Alert Us' (top left) ONLY if they describe a real problem (bad odors, dead fish, etc).
 
                 CONSTRAINTS:
-                - Tone: Polite, punctual, and helpful (like a human peer).
-                - Answer ONLY the user's question.
-                - Length: STRICT MAXIMUM OF 2 SENTENCES.
+                - STRICT MAXIMUM OF 3 SENTENCES.
+                - Answer ONLY the question asked.
 
                 User Question: {message}
                 ";
 
             var aiResponse = await GetCohereResponse(prompt);
-
             return new ChatResponse { Response = aiResponse };
         }
     }
