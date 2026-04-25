@@ -45,6 +45,29 @@ namespace Green_Blanket_Project___Backend.Controllers
         }
 
         // ============================================================================
+        // SIMPLE WATER QUALITY SCORE
+        // ============================================================================
+        [HttpGet("water-quality")]
+        public async Task<IActionResult> GetWaterQualityScore()
+        {
+            var latest = await _context.WaterReadings
+                .AsNoTracking()
+                .Where(w => w.PhLevel != null && w.Nitrates != null && w.Phosphates != null)
+                .OrderByDescending(w => w.DateTime)
+                .FirstOrDefaultAsync();
+
+            if (latest == null) return NotFound("No recent water data available.");
+
+            float wqi = CalculateWQI(latest);
+
+            return Ok(new
+            {
+                timestamp = latest.DateTime,
+                waterQualityScore = Math.Round(wqi, 1)
+            });
+        }
+
+        // ============================================================================
         // CHATBOT DATA FEED
         // ============================================================================
         [HttpGet("chatbot-summary")]
@@ -825,3 +848,4 @@ namespace Green_Blanket_Project___Backend.Controllers
         }
     }
 }
+
