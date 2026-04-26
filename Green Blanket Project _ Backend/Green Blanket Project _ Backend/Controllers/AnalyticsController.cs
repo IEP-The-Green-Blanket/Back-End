@@ -62,7 +62,6 @@ namespace Green_Blanket_Project___Backend.Controllers
 
             return Ok(new
             {
-                timestamp = latest.DateTime,
                 waterQualityScore = Math.Round(wqi, 1)
             });
         }
