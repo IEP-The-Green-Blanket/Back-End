@@ -90,7 +90,7 @@ namespace GB.Application.Services
                 SENSOR DATA (JSON): {factSheet}
 
                 STRICT OPERATING RULES:
-                1. OUTDATED DATA RULE: If the 'timestamp' in the JSON is not within a week range from {today}, you must politely mention that the data is from a previous reading (state the date) and that you are currently awaiting a fresh sensor update.
+                1. OUTDATED DATA RULE: If the 'timestamp' in the JSON is not within a week range from {today}, you must politely mention that the data is from a previous reading (state the date) and that you are currently awaiting a fresh sensor update only if asked about the chemicals  and ph of water.
                 2. BE HUMAN: Speak naturally and politely, as if to a peer. Answer ONLY the user's specific question.
                 3. DATA-FIRST: If you don't have a specific reading, say you don't have it and pivot to a metric you DO have from the JSON. Never invent data.
                 4. SAFETY: If 'swimSafety' is not 'Safe', advise caution. If 'skinIrritationRisk' is not 'None', warn about rashes.
