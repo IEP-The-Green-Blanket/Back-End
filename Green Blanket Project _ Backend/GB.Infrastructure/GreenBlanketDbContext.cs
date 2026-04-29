@@ -10,8 +10,6 @@ public class GreenBlanketDbContext : DbContext
 
     public DbSet<ForumReport> ForumReports { get; set; }
     public DbSet<UserAccount> UserAccounts { get; set; }
-
-    // NEW: The Analytics Data Table
     public DbSet<WaterReading> WaterReadings { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -71,7 +69,6 @@ public class GreenBlanketDbContext : DbContext
         // 3. WaterReading Mapping (Analytics Engine)
         // ==========================================
         modelBuilder.Entity<WaterReading>().ToTable("water_data");
-
         modelBuilder.Entity<WaterReading>().HasKey(w => w.MonFeatureId);
 
         modelBuilder.Entity<WaterReading>()
