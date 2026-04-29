@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using GB.Infrastructure;
 using GB.Domain.Entities;
@@ -20,19 +21,19 @@ namespace Green_Blanket_Project___Backend.Controllers
             _context = context;
         }
 
-        // ==========================================
-        // 0. FOUNDATION & CHATBOT (Unchanged - Fast Lookups)
-        // ==========================================
-        [HttpGet("test-connection")]
+        // ==========================================
+        // 0. FOUNDATION & CHATBOT (Unchanged - Fast Lookups)
+        // ==========================================
+        [HttpGet("test-connection")]
         public async Task<IActionResult> GetRecentReadings()
         {
             try
             {
                 var recentData = await _context.WaterReadings
-                    .OrderByDescending(w => w.DateTime)
-                    .Take(5)
-                    .Select(w => new { w.DateTime, w.PhLevel, w.Nitrates, w.Phosphates })
-                    .ToListAsync();
+                  .OrderByDescending(w => w.DateTime)
+                  .Take(5)
+                  .Select(w => new { w.DateTime, w.PhLevel, w.Nitrates, w.Phosphates })
+                  .ToListAsync();
 
                 if (!recentData.Any()) return NotFound("Connected to DB, but table is empty.");
                 return Ok(new { status = "Success", message = "Database linked.", data = recentData });
@@ -47,10 +48,10 @@ namespace Green_Blanket_Project___Backend.Controllers
         public async Task<IActionResult> GetChatbotSummary()
         {
             var latest = await _context.WaterReadings
-                .AsNoTracking()
-                .Where(w => w.PhLevel != null && w.Nitrates != null && w.Phosphates != null)
-                .OrderByDescending(w => w.DateTime)
-                .FirstOrDefaultAsync();
+              .AsNoTracking()
+              .Where(w => w.PhLevel != null && w.Nitrates != null && w.Phosphates != null)
+              .OrderByDescending(w => w.DateTime)
+              .FirstOrDefaultAsync();
 
             if (latest == null) return NotFound("No recent water data available.");
 
@@ -88,51 +89,51 @@ namespace Green_Blanket_Project___Backend.Controllers
             });
         }
 
-        // ============================================================================
-        // 1. OMNI-DASHBOARD (Optimized Graphing for 144/day)
-        // ============================================================================
-        [HttpGet("omni-dashboard")]
+        // ============================================================================
+        // 1. OMNI-DASHBOARD (Optimized Graphing for 144/day)
+        // ============================================================================
+        [HttpGet("omni-dashboard")]
         public async Task<IActionResult> GetOmniDashboard()
         {
             var latest = await _context.WaterReadings
-                .AsNoTracking()
-                .Where(w => w.PhLevel != null && w.Nitrates != null && w.Phosphates != null && w.ElectricalConductivity != null)
-                .OrderByDescending(w => w.DateTime)
-                .FirstOrDefaultAsync();
+              .AsNoTracking()
+              .Where(w => w.PhLevel != null && w.Nitrates != null && w.Phosphates != null && w.ElectricalConductivity != null)
+              .OrderByDescending(w => w.DateTime)
+              .FirstOrDefaultAsync();
 
             if (latest == null) return NotFound("Insufficient data found to build analytics.");
 
             DateTime latestUtc = DateTime.SpecifyKind(latest.DateTime, DateTimeKind.Utc);
 
-            // Fetch only necessary columns to save RAM, then group by Day in memory
-            var rawHistorical = await _context.WaterReadings
-                .AsNoTracking()
-                .Where(w => w.DateTime >= latestUtc.AddDays(-30)
-                         && w.PhLevel != null && w.Nitrates != null && w.Phosphates != null)
-                .Select(w => new { w.DateTime, w.Nitrates, w.Phosphates, w.ElectricalConductivity, w.PhLevel })
-                .ToListAsync();
+            // Fetch only necessary columns to save RAM, then group by Day in memory
+            var rawHistorical = await _context.WaterReadings
+        .AsNoTracking()
+        .Where(w => w.DateTime >= latestUtc.AddDays(-30)
+            && w.PhLevel != null && w.Nitrates != null && w.Phosphates != null)
+        .Select(w => new { w.DateTime, w.Nitrates, w.Phosphates, w.ElectricalConductivity, w.PhLevel })
+        .ToListAsync();
 
-            // Squash ~4,320 points into exactly 30 daily averages for the frontend
-            var dailyTrends = rawHistorical
-                .GroupBy(w => w.DateTime.Date)
-                .OrderBy(g => g.Key)
-                .Select(g => new {
-                    Date = g.Key,
-                    Nitrates = g.Average(x => x.Nitrates.Value),
-                    Phosphates = g.Average(x => x.Phosphates.Value),
-                    EC = g.Average(x => x.ElectricalConductivity ?? 0)
-                }).ToList();
+            // Squash ~4,320 points into exactly 30 daily averages for the frontend
+            var dailyTrends = rawHistorical
+        .GroupBy(w => w.DateTime.Date)
+        .OrderBy(g => g.Key)
+        .Select(g => new {
+            Date = g.Key,
+            Nitrates = g.Average(x => x.Nitrates.Value),
+            Phosphates = g.Average(x => x.Phosphates.Value),
+            EC = g.Average(x => x.ElectricalConductivity ?? 0)
+        }).ToList();
 
-            // Math calculations
-            float wqi = CalculateWQI(latest);
+            // Math calculations
+            float wqi = CalculateWQI(latest);
             double ammoniaVal = latest.Ammonia ?? 0.05;
             double toxicPercentage = 1 / (Math.Pow(10, (9.25 - latest.PhLevel.Value)) + 1);
             double actualToxicNH3 = ammoniaVal * toxicPercentage;
             double expansionRate = (latest.Nitrates.Value * 0.5) + (latest.Phosphates.Value * 2.0);
             string sewageSource = (latest.Nitrates / (ammoniaVal > 0 ? ammoniaVal : 0.01)) > 10 ? "Leached Runoff" : "Active Raw Leak";
 
-            // Limit StdDev calculation to the last 7 days only (approx 1,008 rows max)
-            var last7DaysPh = rawHistorical.Where(d => d.DateTime >= latestUtc.AddDays(-7)).Select(d => (double)d.PhLevel.Value).ToList();
+            // Limit StdDev calculation to the last 7 days only (approx 1,008 rows max)
+            var last7DaysPh = rawHistorical.Where(d => d.DateTime >= latestUtc.AddDays(-7)).Select(d => (double)d.PhLevel.Value).ToList();
             double phVolatility = last7DaysPh.Count > 1 ? CalculateStdDev(last7DaysPh) : 0;
             double healthRiskBase = Math.Clamp((Math.Max(0, latest.PhLevel.Value - 7.0) * 15) + (latest.Phosphates.Value * 120), 0, 100);
 
@@ -174,10 +175,10 @@ namespace Green_Blanket_Project___Backend.Controllers
             });
         }
 
-        // ============================================================================
-        // 2. FILTERED HISTORICAL DATA (Smart Resolution Engine applied)
-        // ============================================================================
-        [HttpGet("history/range")]
+        // ============================================================================
+        // 2. FILTERED HISTORICAL DATA (Smart Resolution Engine applied)
+        // ============================================================================
+        [HttpGet("history/range")]
         public async Task<IActionResult> GetRangeData([FromQuery] DateTime start, [FromQuery] DateTime end)
         {
             DateTime startUtc = DateTime.SpecifyKind(start, DateTimeKind.Utc);
@@ -186,50 +187,50 @@ namespace Green_Blanket_Project___Backend.Controllers
             var durationDays = (finalEnd - startUtc).TotalDays;
 
             var rawData = await _context.WaterReadings
-                .AsNoTracking()
-                .Where(w => w.DateTime >= startUtc && w.DateTime <= finalEnd)
-                .Select(w => new { w.DateTime, w.PhLevel, w.Nitrates, w.Phosphates, w.ElectricalConductivity })
-                .ToListAsync();
+              .AsNoTracking()
+              .Where(w => w.DateTime >= startUtc && w.DateTime <= finalEnd)
+              .Select(w => new { w.DateTime, w.PhLevel, w.Nitrates, w.Phosphates, w.ElectricalConductivity })
+              .ToListAsync();
 
             if (!rawData.Any()) return NotFound("No data found in selection.");
 
             object groupedData;
 
-            // SMART AGGREGATION: Prevent UI overload
-            if (durationDays > 3)
+            // SMART AGGREGATION: Prevent UI overload
+            if (durationDays > 3)
             {
-                // Range > 3 days: Group into 1 data point per DAY
-                groupedData = rawData
-                    .GroupBy(w => w.DateTime.Date)
-                    .Select(g => new {
-                        x = g.Key.ToString("yyyy-MM-dd"),
-                        ph = Math.Round(g.Average(w => w.PhLevel ?? 0), 2),
-                        nitrates = Math.Round(g.Average(w => w.Nitrates ?? 0), 2),
-                        phosphates = Math.Round(g.Average(w => w.Phosphates ?? 0), 2),
-                        ec = Math.Round(g.Average(w => w.ElectricalConductivity ?? 0), 2)
-                    }).OrderBy(g => g.x).ToList();
+                // Range > 3 days: Group into 1 data point per DAY
+                groupedData = rawData
+          .GroupBy(w => w.DateTime.Date)
+          .Select(g => new {
+              x = g.Key.ToString("yyyy-MM-dd"),
+              ph = Math.Round(g.Average(w => w.PhLevel ?? 0), 2),
+              nitrates = Math.Round(g.Average(w => w.Nitrates ?? 0), 2),
+              phosphates = Math.Round(g.Average(w => w.Phosphates ?? 0), 2),
+              ec = Math.Round(g.Average(w => w.ElectricalConductivity ?? 0), 2)
+          }).OrderBy(g => g.x).ToList();
             }
             else
             {
-                // Range <= 3 days: Group into 1 data point per HOUR
-                groupedData = rawData
-                    .GroupBy(w => new DateTime(w.DateTime.Year, w.DateTime.Month, w.DateTime.Day, w.DateTime.Hour, 0, 0))
-                    .Select(g => new {
-                        x = g.Key.ToString("yyyy-MM-dd HH:mm"),
-                        ph = Math.Round(g.Average(w => w.PhLevel ?? 0), 2),
-                        nitrates = Math.Round(g.Average(w => w.Nitrates ?? 0), 2),
-                        phosphates = Math.Round(g.Average(w => w.Phosphates ?? 0), 2),
-                        ec = Math.Round(g.Average(w => w.ElectricalConductivity ?? 0), 2)
-                    }).OrderBy(g => g.x).ToList();
+                // Range <= 3 days: Group into 1 data point per HOUR
+                groupedData = rawData
+          .GroupBy(w => new DateTime(w.DateTime.Year, w.DateTime.Month, w.DateTime.Day, w.DateTime.Hour, 0, 0))
+          .Select(g => new {
+              x = g.Key.ToString("yyyy-MM-dd HH:mm"),
+              ph = Math.Round(g.Average(w => w.PhLevel ?? 0), 2),
+              nitrates = Math.Round(g.Average(w => w.Nitrates ?? 0), 2),
+              phosphates = Math.Round(g.Average(w => w.Phosphates ?? 0), 2),
+              ec = Math.Round(g.Average(w => w.ElectricalConductivity ?? 0), 2)
+          }).OrderBy(g => g.x).ToList();
             }
 
             return Ok(new { dataPoints = groupedData });
         }
 
-        // ============================================================
-        // 3. ECOSYSTEM TRENDS (Pre-projected to save memory)
-        // ============================================================
-        [HttpGet("graph-data/critical-trends")]
+        // ============================================================
+        // 3. ECOSYSTEM TRENDS (Pre-projected to save memory)
+        // ============================================================
+        [HttpGet("graph-data/critical-trends")]
         public async Task<IActionResult> GetCriticalTrends([FromQuery] DateTime? start, [FromQuery] DateTime? end)
         {
             DateTime startDate = start ?? new DateTime(2026, 02, 01);
@@ -237,26 +238,26 @@ namespace Green_Blanket_Project___Backend.Controllers
             DateTime startUtc = DateTime.SpecifyKind(startDate, DateTimeKind.Utc);
             var finalEnd = DateTime.SpecifyKind(endDate, DateTimeKind.Utc).AddHours(23).AddMinutes(59);
 
-            // Project only required fields before downloading from database
-            var rawData = await _context.WaterReadings
-                .AsNoTracking()
-                .Where(w => w.DateTime >= startUtc && w.DateTime <= finalEnd
-                         && w.PhLevel != null && w.Nitrates != null && w.Phosphates != null)
-                .Select(w => new { w.DateTime, w.PhLevel, w.Nitrates, w.Phosphates, w.Ammonia })
-                .ToListAsync();
+            // Project only required fields before downloading from database
+            var rawData = await _context.WaterReadings
+        .AsNoTracking()
+        .Where(w => w.DateTime >= startUtc && w.DateTime <= finalEnd
+            && w.PhLevel != null && w.Nitrates != null && w.Phosphates != null)
+        .Select(w => new { w.DateTime, w.PhLevel, w.Nitrates, w.Phosphates, w.Ammonia })
+        .ToListAsync();
 
             if (!rawData.Any()) return NotFound("No data found.");
 
             var cleanTrend = rawData
-                .GroupBy(d => d.DateTime.Date)
-                .OrderBy(g => g.Key)
-                .Select(g => new {
-                    Date = g.Key,
-                    Ph = g.Average(x => x.PhLevel.Value),
-                    Nitrates = g.Average(x => x.Nitrates.Value),
-                    Phosphates = g.Average(x => x.Phosphates.Value),
-                    Ammonia = g.Average(x => x.Ammonia ?? 0.05)
-                }).ToList();
+              .GroupBy(d => d.DateTime.Date)
+              .OrderBy(g => g.Key)
+              .Select(g => new {
+                  Date = g.Key,
+                  Ph = g.Average(x => x.PhLevel.Value),
+                  Nitrates = g.Average(x => x.Nitrates.Value),
+                  Phosphates = g.Average(x => x.Phosphates.Value),
+                  Ammonia = g.Average(x => x.Ammonia ?? 0.05)
+              }).ToList();
 
             return Ok(new
             {
@@ -276,10 +277,10 @@ namespace Green_Blanket_Project___Backend.Controllers
             });
         }
 
-        // ============================================================
-        // 4. FORENSIC ATTRIBUTION (Optimized Aggregation)
-        // ============================================================
-        [HttpGet("forensic-attribution")]
+        // ============================================================
+        // 4. FORENSIC ATTRIBUTION (Optimized Aggregation)
+        // ============================================================
+        [HttpGet("forensic-attribution")]
         public async Task<IActionResult> GetForensicAttribution([FromQuery] DateTime? start, [FromQuery] DateTime? end)
         {
             DateTime startDate = start ?? new DateTime(2026, 02, 01);
@@ -288,20 +289,20 @@ namespace Green_Blanket_Project___Backend.Controllers
             var finalEnd = DateTime.SpecifyKind(endDate, DateTimeKind.Utc).AddHours(23).AddMinutes(59);
 
             var query = _context.WaterReadings.AsNoTracking()
-                .Where(w => w.DateTime >= startUtc && w.DateTime <= finalEnd
-                         && w.PhLevel != null && w.Nitrates != null && w.Phosphates != null && w.ElectricalConductivity != null);
+              .Where(w => w.DateTime >= startUtc && w.DateTime <= finalEnd
+                  && w.PhLevel != null && w.Nitrates != null && w.Phosphates != null && w.ElectricalConductivity != null);
 
             var count = await query.CountAsync();
             if (count == 0) return NotFound("No forensic data found for this range.");
 
-            // Calculate averages at the DB level
-            double avgNitrates = await query.AverageAsync(d => d.Nitrates.Value);
+            // Calculate averages at the DB level
+            double avgNitrates = await query.AverageAsync(d => d.Nitrates.Value);
             double avgPhosphates = await query.AverageAsync(d => d.Phosphates.Value);
             double avgEC = await query.AverageAsync(d => d.ElectricalConductivity.Value);
             int industrialEvents = await query.CountAsync(d => d.ElectricalConductivity > 85);
 
-            // Only pull the 1 column needed for Variance calculation into RAM
-            var phLevels = await query.Select(d => (double)d.PhLevel.Value).ToListAsync();
+            // Only pull the 1 column needed for Variance calculation into RAM
+            var phLevels = await query.Select(d => (double)d.PhLevel.Value).ToListAsync();
             double pHVariance = CalculateStdDev(phLevels);
 
             double overallRatio = avgNitrates / (avgPhosphates > 0 ? avgPhosphates : 0.01);
@@ -326,10 +327,10 @@ namespace Green_Blanket_Project___Backend.Controllers
             });
         }
 
-        // ============================================================
-        // 5. REMEDIATION PROGRESS (Pushed to Database Aggregation)
-        // ============================================================
-        [HttpGet("remediation-progress")]
+        // ============================================================
+        // 5. REMEDIATION PROGRESS (Pushed to Database Aggregation)
+        // ============================================================
+        [HttpGet("remediation-progress")]
         public async Task<IActionResult> GetRemediationProgress([FromQuery] DateTime? end)
         {
             var latestInDb = await _context.WaterReadings.MaxAsync(w => (DateTime?)w.DateTime) ?? DateTime.UtcNow;
@@ -339,23 +340,23 @@ namespace Green_Blanket_Project___Backend.Controllers
             DateTime baselineStart = baselineEnd.AddDays(-7);
 
             var currentQuery = _context.WaterReadings.AsNoTracking()
-                .Where(w => w.DateTime >= currentStart && w.DateTime <= currentEnd && w.PhLevel != null && w.Nitrates != null && w.Phosphates != null);
+              .Where(w => w.DateTime >= currentStart && w.DateTime <= currentEnd && w.PhLevel != null && w.Nitrates != null && w.Phosphates != null);
 
             var baselineQuery = _context.WaterReadings.AsNoTracking()
-                .Where(w => w.DateTime >= baselineStart && w.DateTime <= baselineEnd && w.PhLevel != null && w.Nitrates != null && w.Phosphates != null);
+              .Where(w => w.DateTime >= baselineStart && w.DateTime <= baselineEnd && w.PhLevel != null && w.Nitrates != null && w.Phosphates != null);
 
             int currentCount = await currentQuery.CountAsync();
             int baselineCount = await baselineQuery.CountAsync();
 
             if (currentCount < 3 || baselineCount < 3) return NotFound("Insufficient data to generate a comparative progress report.");
 
-            // ✅ OPTIMIZATION: Calculate Raw Nutrients directly in DB (Extremely Fast)
-            double currentNutrients = await currentQuery.AverageAsync(d => d.Nitrates.Value + d.Phosphates.Value);
+            // ✅ OPTIMIZATION: Calculate Raw Nutrients directly in DB (Extremely Fast)
+            double currentNutrients = await currentQuery.AverageAsync(d => d.Nitrates.Value + d.Phosphates.Value);
             double baselineNutrients = await baselineQuery.AverageAsync(d => d.Nitrates.Value + d.Phosphates.Value);
 
-            // ✅ OPTIMIZATION: Approximate WQI directly in PostgreSQL instead of pulling lists to RAM
-            // We average the raw components in the DB, then do the math locally on the 3 averages.
-            var currentAvgs = await currentQuery.GroupBy(x => 1).Select(g => new {
+            // ✅ OPTIMIZATION: Approximate WQI directly in PostgreSQL instead of pulling lists to RAM
+            // We average the raw components in the DB, then do the math locally on the 3 averages.
+            var currentAvgs = await currentQuery.GroupBy(x => 1).Select(g => new {
                 Ph = g.Average(x => x.PhLevel.Value),
                 Nit = g.Average(x => x.Nitrates.Value),
                 Pho = g.Average(x => x.Phosphates.Value)
@@ -367,8 +368,8 @@ namespace Green_Blanket_Project___Backend.Controllers
                 Pho = g.Average(x => x.Phosphates.Value)
             }).FirstOrDefaultAsync();
 
-            // Perform the WQI math locally using the DB-calculated averages
-            double currentWqi = 0;
+            // Perform the WQI math locally using the DB-calculated averages
+            double currentWqi = 0;
             if (currentAvgs != null)
             {
                 double phScoreC = Math.Clamp(100 - (Math.Abs(7.5 - currentAvgs.Ph) * 20), 0, 100);
@@ -398,20 +399,20 @@ namespace Green_Blanket_Project___Backend.Controllers
             });
         }
 
-        // ============================================================
-        // 6-10. STATIC/LATEST READINGS (No changes needed, fetching single latest item is instant)
-        // ============================================================
+        // ============================================================
+        // 6-10. STATIC/LATEST READINGS (No changes needed, fetching single latest item is instant)
+        // ============================================================
 
-        [HttpGet("bloom-forecast")]
+        [HttpGet("bloom-forecast")]
         public async Task<IActionResult> GetBloomForecast()
         {
             var latestDate = await _context.WaterReadings.MaxAsync(w => (DateTime?)w.DateTime) ?? DateTime.UtcNow;
 
-            // 48 hours * 144 = 288 points. Perfectly safe for memory.
-            var recentWindow = await _context.WaterReadings.AsNoTracking()
-                .Where(w => w.DateTime >= latestDate.AddDays(-2) && w.PhLevel != null && w.Nitrates != null && w.Phosphates != null)
-                .Select(w => new { w.DateTime, w.PhLevel, w.Nitrates, w.Phosphates })
-                .ToListAsync();
+            // 48 hours * 144 = 288 points. Perfectly safe for memory.
+            var recentWindow = await _context.WaterReadings.AsNoTracking()
+        .Where(w => w.DateTime >= latestDate.AddDays(-2) && w.PhLevel != null && w.Nitrates != null && w.Phosphates != null)
+        .Select(w => new { w.DateTime, w.PhLevel, w.Nitrates, w.Phosphates })
+        .ToListAsync();
 
             if (recentWindow.Count < 2) return NotFound("Insufficient recent data points.");
 
@@ -431,8 +432,8 @@ namespace Green_Blanket_Project___Backend.Controllers
         public async Task<IActionResult> GetIrrigationSafety()
         {
             var latest = await _context.WaterReadings.AsNoTracking()
-                .Where(w => w.Calcium != null && w.Magnesium != null && w.Sodium != null && w.ElectricalConductivity != null)
-                .OrderByDescending(w => w.DateTime).FirstOrDefaultAsync();
+              .Where(w => w.Calcium != null && w.Magnesium != null && w.Sodium != null && w.ElectricalConductivity != null)
+              .OrderByDescending(w => w.DateTime).FirstOrDefaultAsync();
 
             if (latest == null) return NotFound("Insufficient mineral data.");
 
@@ -444,8 +445,8 @@ namespace Green_Blanket_Project___Backend.Controllers
         public async Task<IActionResult> GetInfrastructureRisk()
         {
             var latest = await _context.WaterReadings.AsNoTracking()
-                .Where(w => w.Chloride != null && w.Sulfate != null && w.TotalAlkalinity != null)
-                .OrderByDescending(w => w.DateTime).FirstOrDefaultAsync();
+              .Where(w => w.Chloride != null && w.Sulfate != null && w.TotalAlkalinity != null)
+              .OrderByDescending(w => w.DateTime).FirstOrDefaultAsync();
 
             if (latest == null) return NotFound("Insufficient mineral data.");
 
@@ -458,8 +459,8 @@ namespace Green_Blanket_Project___Backend.Controllers
         public async Task<IActionResult> GetHarvestValue()
         {
             var latest = await _context.WaterReadings.AsNoTracking()
-                .Where(w => w.Nitrates != null && w.Phosphates != null)
-                .OrderByDescending(w => w.DateTime).FirstOrDefaultAsync();
+              .Where(w => w.Nitrates != null && w.Phosphates != null)
+              .OrderByDescending(w => w.DateTime).FirstOrDefaultAsync();
 
             if (latest == null) return NotFound("Data unavailable.");
 
@@ -471,8 +472,8 @@ namespace Green_Blanket_Project___Backend.Controllers
         public async Task<IActionResult> GetComplianceStatus()
         {
             var latest = await _context.WaterReadings.AsNoTracking()
-                .Where(w => w.PhLevel != null && w.Nitrates != null && w.Phosphates != null && w.Ammonia != null)
-                .OrderByDescending(w => w.DateTime).FirstOrDefaultAsync();
+              .Where(w => w.PhLevel != null && w.Nitrates != null && w.Phosphates != null && w.Ammonia != null)
+              .OrderByDescending(w => w.DateTime).FirstOrDefaultAsync();
 
             if (latest == null) return NotFound("Insufficient data.");
 
@@ -480,10 +481,10 @@ namespace Green_Blanket_Project___Backend.Controllers
             return Ok(new { complianceOverview = new { overallComplianceScore = Math.Max(0, score) } });
         }
 
-        // ============================================================
-        // 11. MASTER STATISTICAL AUDIT (The Critical RAM Fix)
-        // ============================================================
-        [HttpGet("master-audit")]
+        // ============================================================
+        // 11. MASTER STATISTICAL AUDIT (The Critical RAM Fix)
+        // ============================================================
+        [HttpGet("master-audit")]
         public async Task<IActionResult> GetMasterAudit([FromQuery] DateTime? start, [FromQuery] DateTime? end)
         {
             var query = _context.WaterReadings.AsNoTracking();
@@ -491,8 +492,8 @@ namespace Green_Blanket_Project___Backend.Controllers
             if (start.HasValue) query = query.Where(w => w.DateTime >= DateTime.SpecifyKind(start.Value, DateTimeKind.Utc));
             if (end.HasValue) query = query.Where(w => w.DateTime <= DateTime.SpecifyKind(end.Value, DateTimeKind.Utc));
 
-            // CRITICAL FIX: Do NOT pull 150k+ rows into memory. Use Database-side math.
-            int totalRecords = await query.CountAsync();
+            // CRITICAL FIX: Do NOT pull 150k+ rows into memory. Use Database-side math.
+            int totalRecords = await query.CountAsync();
             if (totalRecords == 0) return NotFound("No historical records found.");
 
             var minDate = await query.MinAsync(w => w.DateTime);
@@ -503,16 +504,16 @@ namespace Green_Blanket_Project___Backend.Controllers
             var maxPhosphate = await query.MaxAsync(w => w.Phosphates) ?? 0;
             var maxAmmonia = await query.MaxAsync(w => w.Ammonia) ?? 0;
 
-            // Integrity Checks
-            int phCount = await query.CountAsync(d => d.PhLevel != null);
+            // Integrity Checks
+            int phCount = await query.CountAsync(d => d.PhLevel != null);
             int nCount = await query.CountAsync(d => d.Nitrates != null);
             int pCount = await query.CountAsync(d => d.Phosphates != null);
             int aCount = await query.CountAsync(d => d.Ammonia != null);
 
             double completeness = ((double)(phCount + nCount + pCount + aCount) / (totalRecords * 4)) * 100;
 
-            // Variance logic (Pulling just ONE small column to save RAM)
-            var phList = await query.Where(d => d.PhLevel != null).Select(d => (double)d.PhLevel.Value).ToListAsync();
+            // Variance logic (Pulling just ONE small column to save RAM)
+            var phList = await query.Where(d => d.PhLevel != null).Select(d => (double)d.PhLevel.Value).ToListAsync();
             var nList = await query.Where(d => d.Nitrates != null).Select(d => (double)d.Nitrates.Value).ToListAsync();
 
             double phStability = CalculateStdDev(phList);
@@ -528,10 +529,10 @@ namespace Green_Blanket_Project___Backend.Controllers
             });
         }
 
-        // ==========================================
-        // HELPERS (Unchanged)
-        // ==========================================
-        private string MapToTenLevels(double score, string type)
+        // ==========================================
+        // HELPERS (Unchanged)
+        // ==========================================
+        private string MapToTenLevels(double score, string type)
         {
             int index = (int)Math.Clamp(Math.Floor(score / 10), 0, 9);
             return type.ToLower() switch
