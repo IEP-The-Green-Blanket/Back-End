@@ -29,79 +29,60 @@ namespace GB.Application.Services
 
             var requestBody = new
             {
-                // FIXED: Using a versioned model string to bypass alias retirement issues.
-                // If this still fails, try "command-r-08-2024" (the standard version).
                 model = "command-r-plus-08-2024",
-                messages = new[]
-                {
-                    new { role = "user", content = prompt }
-                }
+                messages = new[] { new { role = "user", content = prompt } }
             };
 
             var request = new HttpRequestMessage(HttpMethod.Post, "https://api.cohere.com/v2/chat");
             request.Headers.Add("Authorization", $"Bearer {_cohereApiKey}");
-
-            request.Content = new StringContent(
-                JsonSerializer.Serialize(requestBody),
-                Encoding.UTF8,
-                "application/json"
-            );
+            request.Content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
 
             var response = await _httpClient.SendAsync(request);
-
-            if (!response.IsSuccessStatusCode)
-            {
-                var errorDetails = await response.Content.ReadAsStringAsync();
-                return $"AI Service Error: {response.StatusCode} - {errorDetails}";
-            }
+            if (!response.IsSuccessStatusCode) return "AI Uplink Error.";
 
             var json = await response.Content.ReadAsStringAsync();
             using var doc = JsonDocument.Parse(json);
-
-            try
-            {
-                return doc.RootElement
-                    .GetProperty("message")
-                    .GetProperty("content")[0]
-                    .GetProperty("text")
-                    .GetString() ?? "I received an empty response from the AI.";
-            }
-            catch (Exception ex)
-            {
-                return $"Error parsing AI response: {ex.Message}";
-            }
+            return doc.RootElement.GetProperty("message").GetProperty("content")[0].GetProperty("text").GetString() ?? "No response.";
         }
 
         public async Task<ChatResponse> GetResponse(string message)
         {
-            // 1. Get real-time facts from your Intelligence Engine
+            // 1. Fetch the data packet from our service
             var dataFacts = await _waterService.GetAiStatusPacketAsync();
-            string factSheet = dataFacts != null
-                ? JsonSerializer.Serialize(dataFacts)
-                : "Live sensors are currently offline.";
+            string factSheet = dataFacts != null ? JsonSerializer.Serialize(dataFacts) : "OFFLINE";
 
-            // 2. Capture the REAL current time so the AI knows today's date
-            string today = DateTime.Now.ToString("MMMM dd, yyyy");
+            // 2. Capture current time for the "Freshness Check"
+            string now = DateTime.Now.ToString("MMMM dd, yyyy HH:mm");
 
-            // 3. REFINED HUMAN-CENTRIC PROMPT WITH DATE AWARENESS
+            // 3. HUMAN-CENTRIC SYSTEM PROMPT
             var prompt = $@"
-                ROLE: You are the 'Green Blanket Assistant,' a friendly and professional human expert on the Hartbeespoort Dam.
-                TODAY'S DATE: {today}
-                SENSOR DATA (JSON): {factSheet}
+                ROLE: 
+                You are the 'Green Blanket Project' assistant. You are a friendly local expert who translates water science into plain English for the Harties community.
 
-                STRICT OPERATING RULES:
-                1. OUTDATED DATA RULE: If the 'timestamp' in the JSON is not within a week range from {today}, you must politely mention that the data is from a previous reading (state the date) and that you are currently awaiting a fresh sensor update.
-                2. BE HUMAN: Speak naturally and politely, as if to a peer. Answer ONLY the user's specific question.
-                3. DATA-FIRST: If you don't have a specific reading, say you don't have it and pivot to a metric you DO have from the JSON. Never invent data.
-                4. SAFETY: If 'swimSafety' is not 'Safe', advise caution. If 'skinIrritationRisk' is not 'None', warn about rashes.
-                5. REPORTING: Suggest 'Alert Us' (top left) ONLY if they describe a real problem (bad odors, dead fish, etc).
+                CONTEXT:
+                - Current Server Time: {now}
+                - Latest Telemetry Packet (JSON): {factSheet}
 
-                CONSTRAINTS:
-                - STRICT MAXIMUM OF 3 SENTENCES.
-                - Answer ONLY the question asked.
+                STRICT BEHAVIOR RULES:
+                1. BE DIRECT: Answer the user's specific question in the very first sentence. Do not bury the answer behind pleasantries or long introductions.
+                2. DATA FRESHNESS: Check the 'isStale' flag in the JSON. If true, you MUST include a concise warning (e.g., 'Note: My latest readings are from [dataTimestamp]...') within your response.
+                3. NO JARGON: Always use 'Average Joe' language. Translate terms like 'Sodium Adsorption Ratio' to 'soil safety for crops' and 'Larson-Skold Index' to 'motor corrosion risk'.
+                4. RELEVANCE ONLY: Provide only the telemetry requested. If the user asks about swimming, do not mention boat motors or farming unless the safety status is critical for everyone.
+                5. TRENDS: Use 'dailySummary' to state if values are currently rising or falling compared to the 24-hour average.
+                6. HONESTY: If data is 'OFFLINE', state clearly that sensor connection is lost and you cannot provide live data.
 
-                User Question: {message}
-                ";
+                WEBSITE NAVIGATION MAP:
+                - If they need GRAPHS/TRENDS: Click the 'Analytics' tab in the sidebar.
+                - If they see POLLUTION/DEAD FISH: Use the 'Alert Us' button (top left).
+                - If they want Community Sightings: Go to the 'Reports' page.
+                - If they are LOST: The 'Home' logo returns you to the main dashboard.
+
+                CONSTRAINTS: 
+                - MAXIMUM 2.5 SENTENCES. 
+                - Lead with the answer, follow with guidance.
+
+                USER INQUIRY: {message}
+            ";
 
             var aiResponse = await GetCohereResponse(prompt);
             return new ChatResponse { Response = aiResponse };

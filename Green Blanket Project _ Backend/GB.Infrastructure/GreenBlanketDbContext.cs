@@ -16,9 +16,6 @@ public class GreenBlanketDbContext : DbContext
     {
         base.OnModelCreating(modelBuilder);
 
-        // ==========================================
-        // THE MASTER KEY: Set the default schema
-        // ==========================================
         modelBuilder.HasDefaultSchema("hartbeespoortdam");
 
         // 1. ForumReport Mapping
@@ -59,17 +56,16 @@ public class GreenBlanketDbContext : DbContext
             .Property(u => u.Password)
             .HasColumnName("user_password");
 
-        // Enum mapping fix for PostgreSQL
         modelBuilder.Entity<UserAccount>()
             .Property(u => u.Role)
             .HasColumnName("user_role")
             .HasConversion<string>();
 
-        // ==========================================
-        // 3. WaterReading Mapping (Analytics Engine)
-        // ==========================================
+        // 3. WaterReading Mapping
         modelBuilder.Entity<WaterReading>().ToTable("water_data");
-        modelBuilder.Entity<WaterReading>().HasKey(w => w.MonFeatureId);
+
+        // Syncs perfectly with WaterReading.cs
+        modelBuilder.Entity<WaterReading>().HasKey(w => w.DateTime);
 
         modelBuilder.Entity<WaterReading>()
             .Property(w => w.MonFeatureId)

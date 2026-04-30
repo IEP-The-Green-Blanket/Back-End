@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using System.Text.Json;
 using Renci.SshNet; // The SSH Tunnel Library
 using Scalar.AspNetCore;
+using GB.Infrastructure.Services;
 
 AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 
@@ -84,12 +85,14 @@ builder.Services.AddCors(options =>
 builder.Services.AddScoped<WaterQualityService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 
+builder.Services.AddHostedService<ProceduralSensorAgent>();
+
 var baseUrl = builder.Configuration["ApiBaseUrl"];
 
 builder.Services.AddHttpClient<ChatbotService>(client =>
 {
     client.BaseAddress = new Uri(baseUrl ?? "https://localhost:5050");
-}); // Kept your chatbot!
+}); 
 
 // E. API Tools
 builder.Services.AddControllers();
