@@ -1,4 +1,5 @@
 ﻿using System;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace GB.Domain.Entities
@@ -6,10 +7,12 @@ namespace GB.Domain.Entities
     [Table("water_data", Schema = "hartbeespoortdam")]
     public class WaterReading
     {
-        // --- PRIMARY KEYS (Configured via Fluent API in DbContext) ---
+        // --- PRIMARY KEYS ---
         [Column("mon_feature_id")]
-        public int MonFeatureId { get; set; }
+        [DatabaseGenerated(DatabaseGeneratedOption.None)] 
+        public int? MonFeatureId { get; set; } 
 
+        [Key]                                             
         [Column("date_time")]
         public DateTime DateTime { get; set; }
 
@@ -24,7 +27,6 @@ namespace GB.Domain.Entities
         public string? PreservativeAbbr { get; set; }
 
         // --- CHEMICAL READINGS & DETECTION LIMITS (_dl) ---
-
         [Column("ca_diss_water")]
         public double? Calcium { get; set; }
         [Column("ca_diss_water_dl")]
