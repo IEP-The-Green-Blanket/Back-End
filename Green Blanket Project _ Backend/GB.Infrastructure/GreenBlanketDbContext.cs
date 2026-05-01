@@ -67,6 +67,11 @@ public class GreenBlanketDbContext : DbContext
         // Syncs perfectly with WaterReading.cs
         modelBuilder.Entity<WaterReading>().HasKey(w => w.DateTime);
 
+        // 👇 NEW: Creates the B-Tree Index for lightning-fast date range queries
+        modelBuilder.Entity<WaterReading>()
+            .HasIndex(w => w.DateTime)
+            .HasDatabaseName("idx_water_datetime");
+
         modelBuilder.Entity<WaterReading>()
             .Property(w => w.MonFeatureId)
             .HasColumnName("mon_feature_id");

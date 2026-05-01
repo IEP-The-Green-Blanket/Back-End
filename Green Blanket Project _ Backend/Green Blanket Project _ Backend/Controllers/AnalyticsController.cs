@@ -57,7 +57,6 @@ namespace Green_Blanket_Project___Backend.Controllers
 
             float wqi = CalculateWQI(latest);
             double ammoniaVal = latest.Ammonia ?? 0.05;
-            // Using !.Value because PhLevel is checked in the .Where clause above
             double actualToxicNH3 = ammoniaVal * (1 / (Math.Pow(10, (9.25 - latest.PhLevel!.Value)) + 1));
             double healthRiskBase = Math.Clamp((Math.Max(0.0, latest.PhLevel.Value - 7.0) * 15) + (latest.Phosphates!.Value * 120), 0.0, 100.0);
 
@@ -105,18 +104,19 @@ namespace Green_Blanket_Project___Backend.Controllers
             if (latest == null) return NotFound("Insufficient data.");
 
             DateTime latestUtc = DateTime.SpecifyKind(latest.DateTime, DateTimeKind.Utc);
-            var rawHistorical = await _context.WaterReadings.AsNoTracking()
-                .Where(w => w.DateTime >= latestUtc.AddDays(-30) && w.PhLevel != null)
-                .Select(w => new { w.DateTime, w.Nitrates, w.Phosphates, w.ElectricalConductivity, w.PhLevel, w.Ammonia })
-                .ToListAsync();
 
-            var dailyTrends = rawHistorical.GroupBy(w => w.DateTime.Date).OrderBy(g => g.Key)
+            // FIX 1: Let Database group the heavy 30-day graphs
+            var dailyTrends = await _context.WaterReadings.AsNoTracking()
+                .Where(w => w.DateTime >= latestUtc.AddDays(-30) && w.PhLevel != null)
+                .GroupBy(w => w.DateTime.Date)
                 .Select(g => new {
                     Date = g.Key,
                     Nitrates = g.Average(x => x.Nitrates ?? 0),
                     Phosphates = g.Average(x => x.Phosphates ?? 0),
                     EC = g.Average(x => x.ElectricalConductivity ?? 0)
-                }).ToList();
+                })
+                .OrderBy(g => g.Date)
+                .ToListAsync();
 
             float wqi = CalculateWQI(latest);
             double ammoniaVal = latest.Ammonia ?? 0.05;
@@ -124,7 +124,12 @@ namespace Green_Blanket_Project___Backend.Controllers
             double expRate = (latest.Nitrates!.Value * 0.5) + (latest.Phosphates!.Value * 2.0);
             string sewageSrc = (latest.Nitrates.Value / (ammoniaVal > 0 ? ammoniaVal : 0.01)) > 10 ? "Leached Runoff" : "Active Raw Leak";
 
-            var last7DaysPh = rawHistorical.Where(d => d.DateTime >= latestUtc.AddDays(-7)).Select(d => (double)d.PhLevel!.Value).ToList();
+            // FIX 1b: Pull only the raw pH floats needed for volatility math (Uses ~40kb RAM instead of massive objects)
+            var last7DaysPh = await _context.WaterReadings.AsNoTracking()
+                .Where(d => d.DateTime >= latestUtc.AddDays(-7) && d.PhLevel != null)
+                .Select(d => (double)d.PhLevel!.Value)
+                .ToListAsync();
+
             double volatility = last7DaysPh.Count > 1 ? CalculateStdDev(last7DaysPh) : 0;
             double healthRisk = Math.Clamp((Math.Max(0.0, latest.PhLevel.Value - 7.0) * 15) + (latest.Phosphates.Value * 120), 0.0, 100.0);
 
@@ -177,21 +182,56 @@ namespace Green_Blanket_Project___Backend.Controllers
 
             DateTime endDate = end ?? DateTime.UtcNow;
             DateTime startDate = start ?? endDate.AddDays(-7);
+
+            // Hard Cap: Prevent users from requesting massive ranges and crashing the DB
+            if ((endDate - startDate).TotalDays > 180) return BadRequest("Date range cannot exceed 6 months.");
+
             DateTime startUtc = DateTime.SpecifyKind(startDate, DateTimeKind.Utc);
-            DateTime endUtc = DateTime.SpecifyKind(endDate, DateTimeKind.Utc);
-            var finalEnd = endUtc.Date.AddHours(23).AddMinutes(59).AddSeconds(59);
-
-            var rawData = await _context.WaterReadings.AsNoTracking()
-              .Where(w => w.DateTime >= startUtc && w.DateTime <= finalEnd)
-              .Select(w => new { w.DateTime, w.PhLevel, w.Nitrates, w.Phosphates, w.ElectricalConductivity })
-              .ToListAsync();
-
-            if (!rawData.Any()) return NotFound("No data found.");
-
+            var finalEnd = DateTime.SpecifyKind(endDate, DateTimeKind.Utc).Date.AddHours(23).AddMinutes(59).AddSeconds(59);
             double durationDays = (finalEnd - startUtc).TotalDays;
-            object groupedData = (durationDays > 3)
-                ? rawData.GroupBy(w => w.DateTime.Date).Select(g => new { x = g.Key.ToString("yyyy-MM-dd"), ph = Math.Round(g.Average(w => w.PhLevel ?? 0), 2), nitrates = Math.Round(g.Average(w => w.Nitrates ?? 0), 2), phosphates = Math.Round(g.Average(w => w.Phosphates ?? 0), 2), ec = Math.Round(g.Average(w => w.ElectricalConductivity ?? 0), 2) }).OrderBy(g => g.x).ToList()
-                : rawData.GroupBy(w => new DateTime(w.DateTime.Year, w.DateTime.Month, w.DateTime.Day, w.DateTime.Hour, 0, 0)).Select(g => new { x = g.Key.ToString("yyyy-MM-dd HH:mm"), ph = Math.Round(g.Average(w => w.PhLevel ?? 0), 2), nitrates = Math.Round(g.Average(w => w.Nitrates ?? 0), 2), phosphates = Math.Round(g.Average(w => w.Phosphates ?? 0), 2), ec = Math.Round(g.Average(w => w.ElectricalConductivity ?? 0), 2) }).OrderBy(g => g.x).ToList();
+
+            object groupedData;
+
+            // FIX 2: Grouping in DB layer before ToListAsync
+            if (durationDays > 3)
+            {
+                var dbAggregated = await _context.WaterReadings.AsNoTracking()
+                    .Where(w => w.DateTime >= startUtc && w.DateTime <= finalEnd)
+                    .GroupBy(w => w.DateTime.Date)
+                    .Select(g => new {
+                        Date = g.Key,
+                        ph = g.Average(w => w.PhLevel ?? 0),
+                        nitrates = g.Average(w => w.Nitrates ?? 0),
+                        phosphates = g.Average(w => w.Phosphates ?? 0),
+                        ec = g.Average(w => w.ElectricalConductivity ?? 0)
+                    })
+                    .OrderBy(g => g.Date)
+                    .ToListAsync();
+
+                groupedData = dbAggregated.Select(g => new {
+                    x = g.Date.ToString("yyyy-MM-dd"),
+                    ph = Math.Round(g.ph, 2),
+                    nitrates = Math.Round(g.nitrates, 2),
+                    phosphates = Math.Round(g.phosphates, 2),
+                    ec = Math.Round(g.ec, 2)
+                }).ToList();
+            }
+            else
+            {
+                var rawData = await _context.WaterReadings.AsNoTracking()
+                    .Where(w => w.DateTime >= startUtc && w.DateTime <= finalEnd)
+                    .Select(w => new { w.DateTime, w.PhLevel, w.Nitrates, w.Phosphates, w.ElectricalConductivity })
+                    .ToListAsync();
+
+                groupedData = rawData.GroupBy(w => new DateTime(w.DateTime.Year, w.DateTime.Month, w.DateTime.Day, w.DateTime.Hour, 0, 0))
+                    .Select(g => new {
+                        x = g.Key.ToString("yyyy-MM-dd HH:mm"),
+                        ph = Math.Round(g.Average(w => w.PhLevel ?? 0), 2),
+                        nitrates = Math.Round(g.Average(w => w.Nitrates ?? 0), 2),
+                        phosphates = Math.Round(g.Average(w => w.Phosphates ?? 0), 2),
+                        ec = Math.Round(g.Average(w => w.ElectricalConductivity ?? 0), 2)
+                    }).OrderBy(g => g.x).ToList();
+            }
 
             var response = new { dataPoints = groupedData };
             _cache.Set(cacheKey, response, TimeSpan.FromMinutes(10));
@@ -209,32 +249,33 @@ namespace Green_Blanket_Project___Backend.Controllers
             DateTime startUtc = DateTime.SpecifyKind(startDate, DateTimeKind.Utc);
             var finalEnd = DateTime.SpecifyKind(endDate, DateTimeKind.Utc).Date.AddHours(23).AddMinutes(59);
 
-            var rawData = await _context.WaterReadings.AsNoTracking()
+            // FIX 3: Push daily grouping straight to the Postgres database
+            var dbAggregated = await _context.WaterReadings.AsNoTracking()
                 .Where(w => w.DateTime >= startUtc && w.DateTime <= finalEnd && w.PhLevel != null && w.Nitrates != null && w.Phosphates != null)
-                .Select(w => new { w.DateTime, w.PhLevel, w.Nitrates, w.Phosphates, w.Ammonia })
+                .GroupBy(d => d.DateTime.Date)
+                .Select(g => new {
+                    Date = g.Key,
+                    Ph = g.Average(x => x.PhLevel!.Value),
+                    Nit = g.Average(x => x.Nitrates!.Value),
+                    Pho = g.Average(x => x.Phosphates!.Value),
+                    Amm = g.Average(x => x.Ammonia ?? 0.05)
+                })
+                .OrderBy(g => g.Date)
                 .ToListAsync();
 
-            if (!rawData.Any()) return NotFound();
-
-            var cleanTrend = rawData.GroupBy(d => d.DateTime.Date).OrderBy(g => g.Key).Select(g => new {
-                Date = g.Key,
-                Ph = g.Average(x => x.PhLevel!.Value),
-                Nit = g.Average(x => x.Nitrates!.Value),
-                Pho = g.Average(x => x.Phosphates!.Value),
-                Amm = g.Average(x => x.Ammonia ?? 0.05)
-            }).ToList();
+            if (!dbAggregated.Any()) return NotFound();
 
             var payload = new
             {
-                labels = cleanTrend.Select(d => d.Date.ToString("MMM dd")),
-                vitalityTrend = cleanTrend.Select(d => {
+                labels = dbAggregated.Select(d => d.Date.ToString("MMM dd")),
+                vitalityTrend = dbAggregated.Select(d => {
                     float phScore = Math.Clamp(100f - (Math.Abs(7.5f - (float)d.Ph) * 20f), 0f, 100f);
                     float nitrateScore = Math.Clamp(100f - ((float)d.Nit * 10f), 0f, 100f);
                     float phosphateScore = Math.Clamp(100f - ((float)d.Pho * 500f), 0f, 100f);
                     return Math.Round((phScore * 0.2f) + (nitrateScore * 0.4f) + (phosphateScore * 0.4f), 1);
                 }),
-                nutrientTrend = cleanTrend.Select(d => new { nitrates = Math.Round(d.Nit, 3), phosphates = Math.Round(d.Pho, 3) }),
-                safetyTrend = cleanTrend.Select(d => Math.Round(d.Amm * (1 / (Math.Pow(10, (9.25 - d.Ph)) + 1)), 4))
+                nutrientTrend = dbAggregated.Select(d => new { nitrates = Math.Round(d.Nit, 3), phosphates = Math.Round(d.Pho, 3) }),
+                safetyTrend = dbAggregated.Select(d => Math.Round(d.Amm * (1 / (Math.Pow(10, (9.25 - d.Ph)) + 1)), 4))
             };
 
             _cache.Set(cacheKey, payload, TimeSpan.FromMinutes(15));
@@ -389,33 +430,74 @@ namespace Green_Blanket_Project___Backend.Controllers
         }
 
         [HttpGet("master-audit")]
-        public async Task<IActionResult> GetMasterAudit([FromQuery] DateTime? start, [FromQuery] DateTime? end)
+        public async Task<IActionResult> GetMasterAudit([FromQuery] DateTime? start, [FromQuery] DateTime? end, [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 25)
         {
-            const string cacheKey = "MasterAuditData";
+            pageSize = Math.Clamp(pageSize, 1, 100);
+            pageNumber = Math.Max(1, pageNumber);
+
+            string cacheKey = $"MasterAuditData_Daily_{start}_{end}_{pageNumber}_{pageSize}";
             if (_cache.TryGetValue(cacheKey, out object? cached) && cached != null) return Ok(cached);
 
-            var query = _context.WaterReadings.AsNoTracking();
-            if (start.HasValue) query = query.Where(w => w.DateTime >= DateTime.SpecifyKind(start.Value, DateTimeKind.Utc));
-            if (end.HasValue) query = query.Where(w => w.DateTime <= DateTime.SpecifyKind(end.Value, DateTimeKind.Utc));
+            var baseQuery = _context.WaterReadings.AsNoTracking();
 
-            int total = await query.CountAsync();
-            if (total == 0) return NotFound();
+            // Fix: Ensure the search includes the full day (up to 23:59:59)
+            if (start.HasValue) baseQuery = baseQuery.Where(w => w.DateTime >= DateTime.SpecifyKind(start.Value, DateTimeKind.Utc));
+            if (end.HasValue)
+            {
+                var finalEnd = DateTime.SpecifyKind(end.Value, DateTimeKind.Utc).Date.AddHours(23).AddMinutes(59).AddSeconds(59);
+                baseQuery = baseQuery.Where(w => w.DateTime <= finalEnd);
+            }
 
-            var maxSewage = await query.MaxAsync(w => w.Nitrates) ?? 0;
-            var maxFertilizer = await query.MaxAsync(w => w.Phosphates) ?? 0;
-            var maxAmmonia = await query.MaxAsync(w => w.Ammonia) ?? 0;
+            // Perform Daily Grouping in the Database
+            var dailyQuery = baseQuery
+                .GroupBy(w => w.DateTime.Date)
+                .Select(g => new {
+                    Date = g.Key,
+                    ph = g.Average(w => w.PhLevel ?? 0),
+                    nitrates = g.Average(w => w.Nitrates ?? 0),
+                    phosphates = g.Average(w => w.Phosphates ?? 0),
+                    ec = g.Average(w => w.ElectricalConductivity ?? 0),
+                    ammonia = g.Average(w => w.Ammonia ?? 0)
+                });
 
-            var phList = await query.Where(d => d.PhLevel != null).OrderByDescending(d => d.DateTime).Take(5000).Select(d => (double)d.PhLevel!.Value).ToListAsync();
-            double stability = CalculateStdDev(phList);
+            int totalDays = await dailyQuery.CountAsync();
+            if (totalDays == 0) return NotFound("No data found.");
+
+            var paginatedDailyLogs = await dailyQuery
+                .OrderByDescending(g => g.Date)
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            // Pull extremes from RAW data (not averaged) to show the true spikes
+            var maxSewage = await baseQuery.MaxAsync(w => (double?)w.Nitrates) ?? 0;
+            var maxFertilizer = await baseQuery.MaxAsync(w => (double?)w.Phosphates) ?? 0;
 
             var result = new
             {
-                auditMetadata = new { totalRecordsAnalyzed = total, reportGeneratedAt = DateTime.UtcNow },
-                historicalExtremes = new { peakSewageInflowMgL = maxSewage, peakFertilizerInflowMgL = maxFertilizer, lethalAmmoniaSpikeMgL = maxAmmonia },
-                ecosystemVariance = new { phVarianceIndex = Math.Round(stability, 3) },
-                databaseHealth = new { completenessPercentage = "98.2%", sensorHealthStatus = total > 50 ? "High Fidelity" : "Low Resolution" }
+                auditMetadata = new
+                {
+                    totalRecordsAnalyzed = totalDays,
+                    pagination = new
+                    {
+                        currentPage = pageNumber,
+                        pageSize = pageSize,
+                        totalPages = (int)Math.Ceiling(totalDays / (double)pageSize)
+                    }
+                },
+                historicalExtremes = new { peakSewageInflowMgL = maxSewage, peakFertilizerInflowMgL = maxFertilizer },
+                // These are the Daily Averages
+                telemetryLogs = paginatedDailyLogs.Select(l => new {
+                    timestamp = l.Date,
+                    ph = Math.Round(l.ph, 2),
+                    nitrates = Math.Round(l.nitrates, 3),
+                    phosphates = Math.Round(l.phosphates, 3),
+                    ec = Math.Round(l.ec, 1),
+                    ammonia = Math.Round(l.ammonia, 4)
+                })
             };
-            _cache.Set(cacheKey, result, TimeSpan.FromMinutes(30));
+
+            _cache.Set(cacheKey, result, TimeSpan.FromMinutes(10));
             return Ok(result);
         }
 
