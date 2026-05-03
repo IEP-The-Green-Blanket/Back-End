@@ -469,9 +469,15 @@ namespace Green_Blanket_Project___Backend.Controllers
                 .Take(pageSize)
                 .ToListAsync();
 
-            // Pull extremes from RAW data (not averaged) to show the true spikes
             var maxSewage = await baseQuery.MaxAsync(w => (double?)w.Nitrates) ?? 0;
             var maxFertilizer = await baseQuery.MaxAsync(w => (double?)w.Phosphates) ?? 0;
+
+            var phList = await baseQuery.Where(w => w.PhLevel != null)
+                .OrderByDescending(w => w.DateTime)
+                .Take(5000)
+                .Select(w => (double)w.PhLevel!)
+                .ToListAsync();
+            double phVariance = phList.Count > 1 ? CalculateStdDev(phList) : 0;
 
             var result = new
             {
@@ -486,6 +492,9 @@ namespace Green_Blanket_Project___Backend.Controllers
                     }
                 },
                 historicalExtremes = new { peakSewageInflowMgL = maxSewage, peakFertilizerInflowMgL = maxFertilizer },
+
+                ecosystemVariance = new { phVarianceIndex = Math.Round(phVariance, 3) },
+
                 // These are the Daily Averages
                 telemetryLogs = paginatedDailyLogs.Select(l => new {
                     timestamp = l.Date,
