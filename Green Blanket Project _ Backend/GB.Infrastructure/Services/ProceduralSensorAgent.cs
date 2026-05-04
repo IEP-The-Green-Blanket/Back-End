@@ -177,7 +177,7 @@ namespace GB.Infrastructure.Services
 
             var reading = new WaterReading
             {
-                DateTime = now,
+                DateTime = sastTime,
                 PhLevel = Math.Round(finalPh, 2),
                 ElectricalConductivity = Math.Round(finalEc, 1),
                 Nitrates = Math.Round(finalNitrates, 3),
